@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/">
     <title>Login</title>
     <link rel="stylesheet" href="/statics/css/login.css" />
 
@@ -33,7 +34,7 @@
 <script>
   window.addEventListener('load', async function () {
     const signInDiv = document.getElementById('sign-in');
-    const uploadUrl = './upload_module.html';
+      const uploadUrl = '/upload_module';
 
     try {
       await Clerk.load({
