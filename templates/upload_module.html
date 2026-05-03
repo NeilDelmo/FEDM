@@ -1,23 +1,74 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <base href="/">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
-</head>
-<body>
-    <div class="upload-container">
-    <div id="drop-zone" class="drop-zone">
-        <span class="drop-zone__prompt">Drop file here or click to upload</span>
-        <input type="file" name="myFile" id="fileInput" class="drop-zone__input" accept=".csv, .xlsx">
-    </div>
-    <div id="preview-section" style="display:none;">
-        <h3>Dataset Preview</h3>
-        <div id="table-wrapper"></div>
-    </div>
-</div>
+    <link rel="stylesheet" href="/statics/css/upload.css" />
+    <script
+      defer
+      crossorigin="anonymous"
+      src="https://better-bonefish-41.clerk.accounts.dev/npm/@clerk/ui@6/dist/ui.browser.js"
+      type="text/javascript"
+    ></script>
+    <script
+      defer
+      crossorigin="anonymous"
+      data-clerk-publishable-key="pk_test_YmV0dGVyLWJvbmVmaXNoLTQxLmNsZXJrLmFjY291bnRzLmRldiQ"
+      data-clerk-frontend-api="https://better-bonefish-41.clerk.accounts.dev"
+      src="https://better-bonefish-41.clerk.accounts.dev/npm/@clerk/clerk-js@6/dist/clerk.browser.js"
+      type="text/javascript"
+    ></script>
+    <script src="/statics/js/upload.js" defer></script>
+  </head>
+  <body>
+    <nav class="navbar">
+      <span class="nav-title">Data Analytics System</span>
+      <div id="user-button"></div>
+    </nav>
 
-    
-</body>
+    <div id="drop-zone" class="drop-zone">
+      <div id="drop-default">
+        <div class ="icon-container">
+            <img src ="statics/icons/csv.png" alt="CSV Icon" class="file-icon-img" />
+            <img src ="statics/icons/xls.png" alt="xls Icon" class="file-icon-img" />
+        </div>
+        <span class="drop-zone__prompt">Drop files here or click to upload</span>
+      </div>
+      <input
+        type="file"
+        name="myFiles"
+        id="fileInput"
+        class="drop-zone__input"
+        accept=".csv, .xlsx"
+        multiple
+        style="display: none;"
+      />
+    </div>
+
+    <div id="upload-list" class="upload-list"></div>
+
+    <script>
+      window.addEventListener("load", async function () {
+        try {
+          await Clerk.load({
+            ui: { ClerkUI: window.__internal_ClerkUICtor },
+          });
+
+          // Redirect to login if not signed in
+          if (!Clerk.user) {
+            window.location.replace("/");
+            return;
+          }
+
+          // Mount the user button (avatar + dropdown) top right
+          Clerk.mountUserButton(document.getElementById("user-button"), {
+            afterSignOutUrl: "/",
+          });
+        } catch (err) {
+          console.error("Clerk Error:", err);
+        }
+      });
+    </script>
+  </body>
 </html>
