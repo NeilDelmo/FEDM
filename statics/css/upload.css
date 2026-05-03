@@ -176,6 +176,8 @@
     width: 100%;
     border-collapse: collapse;
     font-size: 0.875rem;
+    width: 100%;
+    border-collapse: collapse;
 }
 
 /* Header */
@@ -216,4 +218,10 @@
 /* Wrapper */
 .table-wrapper {
     margin-top: 24px;
+    width: 100%;
+}
+
+.table-scroll {
+    width: 100%;
+    overflow-x: auto; 
 }

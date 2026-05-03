@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 import pandas as pd
+import json
 import os
 
 
@@ -22,28 +23,30 @@ def upload_module():
 
 @app.route('/upload', methods=['POST'])
 def upload():
-	if 'file' not in request.files:
-		return jsonify({'error': 'No file part in the request'}), 400
-	if file.filename == '':
-		return jsonify({'error': 'No file selected for uploading'
-        }), 400
-	file = request.files['file']
-	
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part in the request'}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected for uploading'}), 400
+    
     filename = file.filename.lower()
 
-	if filename.endswith('.csv'):
-		df = pd.read_csv(file)
-	else:
-		df = pd.read_excel(file)
-		
-	df = df.where(pd.notnull(df), None)
-	total_rows = len(df)
-	preview_df = df.head(100)
-	return jsonify ({
-		'columns': df.columns.tolist(),
-		'rows': preview_df.to_dict(orient='records'),
-		'total_rows': total_rows
-	})
+    if filename.endswith('.csv'):
+        df = pd.read_csv(file)
+    else:
+        df = pd.read_excel(file)
+
+    total_rows = len(df)
+    preview_df = df.head(100)
+    # Use pandas JSON serializer so NaN/NaT become JSON null values.
+    rows = json.loads(preview_df.to_json(orient='records', date_format='iso'))
+    
+    return jsonify({
+        'columns': preview_df.columns.tolist(),
+        'rows': rows,
+        'total_rows': total_rows
+    })
 
 
 if __name__ == '__main__':

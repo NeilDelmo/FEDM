@@ -71,7 +71,14 @@ function uploadFile(file) {
     // success
     xhr.onload = () => {
         if (xhr.status === 200) {
-            const data = JSON.parse(xhr.responseText);
+            let data;
+            try {
+                data = JSON.parse(xhr.responseText);
+            } catch (error) {
+                status.textContent = 'Invalid server response';
+                status.style.color = '#ef4444';
+                return;
+            }
 
             status.textContent = 'Done';
             status.style.color = '#10b981';
