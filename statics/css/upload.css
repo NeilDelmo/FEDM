@@ -85,6 +85,16 @@
     gap: 15px;
 }
 
+.single-file-notice {
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid #fdba74;
+    background: #fff7ed;
+    color: #9a3412;
+    border-radius: 8px;
+    font-size: 0.85rem;
+}
+
 .upload-item {
     background: #fff;
     border: 1px solid #e2e8f0;
@@ -218,7 +228,10 @@
 /* Wrapper */
 .table-wrapper {
     margin-top: 24px;
-    width: 100%;
+    width: min(92vw, 1050px);
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
 }
 
 .table-scroll {

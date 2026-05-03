@@ -1,6 +1,17 @@
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('fileInput');
 const uploadList = document.getElementById('upload-list');
+let hasActiveUpload = false;
+
+function showSingleFileOnlyMessage() {
+    const existingNotice = document.querySelector('.single-file-notice');
+    if (existingNotice) existingNotice.remove();
+
+    const notice = document.createElement('p');
+    notice.className = 'single-file-notice';
+    notice.textContent = 'Only one file can be uploaded at a time. Remove the current file first.';
+    uploadList.prepend(notice);
+}
 
 dropZone.addEventListener('click', () => { fileInput.click(); fileInput.blur(); });
 
@@ -13,7 +24,18 @@ function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
 dropZone.addEventListener('drop', (e) => { handleFiles(e.dataTransfer.files); });
 fileInput.addEventListener('change', function() { handleFiles(this.files); this.value = ''; });
 
-function handleFiles(files) { [...files].forEach(uploadFile); }
+function handleFiles(files) {
+    if (!files || files.length === 0) return;
+
+    if (hasActiveUpload) {
+        showSingleFileOnlyMessage();
+        return;
+    }
+
+    const file = files[0];
+    hasActiveUpload = true;
+    uploadFile(file);
+}
 
 function uploadFile(file) {
     const item = document.createElement('div');
@@ -40,6 +62,11 @@ function uploadFile(file) {
     removeBtn.onclick = (e) => {
         e.stopPropagation();
         item.remove();
+        const table = document.querySelector('.table-wrapper');
+        if (table) table.remove();
+        hasActiveUpload = false;
+        const notice = document.querySelector('.single-file-notice');
+        if (notice) notice.remove();
     };
 
     info.append(icon, name, status, removeBtn);
