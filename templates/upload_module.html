@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <div class="upload-container">
+    <div id="drop-zone" class="drop-zone">
+        <span class="drop-zone__prompt">Drop file here or click to upload</span>
+        <input type="file" name="myFile" id="fileInput" class="drop-zone__input" accept=".csv, .xlsx">
+    </div>
+    <!-- This is where the preview table will appear -->
+    <div id="preview-section" style="display:none;">
+        <h3>Dataset Preview</h3>
+        <div id="table-wrapper"></div>
+    </div>
+</div>
+
+    
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login</title>
+    <link rel="stylesheet" href="/statics/css/login.css" />
+
+<script
+  defer
+  crossorigin="anonymous"
+  src="https://better-bonefish-41.clerk.accounts.dev/npm/@clerk/ui@6/dist/ui.browser.js"
+  type="text/javascript">
+</script>
+
+<script
+  defer
+  crossorigin="anonymous"
+  data-clerk-publishable-key="pk_test_YmV0dGVyLWJvbmVmaXNoLTQxLmNsZXJrLmFjY291bnRzLmRldiQ"
+  data-clerk-frontend-api="https://better-bonefish-41.clerk.accounts.dev"
+  src="https://better-bonefish-41.clerk.accounts.dev/npm/@clerk/clerk-js@6/dist/clerk.browser.js"
+  type="text/javascript">
+</script>
+  </head>
+  <body>
+  <h2 class="title">Data Analytics System</h2>
+  <div class="container">
+    <div class="box">
+      <div id="sign-in"></div>
+    </div>
+  </div>
+
+<script>
+  window.addEventListener('load', async function () {
+    const signInDiv = document.getElementById('sign-in');
+    const uploadUrl = './upload_module.html';
+
+    try {
+      await Clerk.load({
+        afterSignInUrl: uploadUrl,
+        ui: { ClerkUI: window.__internal_ClerkUICtor }
+      });
+
+      if (Clerk.user) {
+        window.location.replace(uploadUrl);
+      } else {
+        Clerk.mountSignIn(signInDiv, {
+          afterSignInUrl: uploadUrl,
+          afterSignUpUrl: uploadUrl,
+          appearance: {
+            variables: {
+              colorPrimary: "#ff6600", // This changes the button color
+              colorBackground: "#ffffff",
+              colorText: "#2d3436"
+            },
+            layout: {
+              socialButtonsPlacement: "bottom",
+              showOptionalFields: false
+            }
+          }
+        });
+      }
+    } catch (err) {
+      console.error('Clerk Error:', err);
+      signInDiv.textContent = 'Failed to load login: ' + err.message;
+    }
+  });
+</script>
+</body>
+</html>
