@@ -113,6 +113,7 @@ function uploadFile(file) {
             progressBar.classList.add('completed');
 
             displayTable(data.columns, data.rows, data.total_rows);
+            displayProfile(data);
         } else {
             status.textContent = 'Error';
             status.style.color = '#ef4444';
@@ -184,4 +185,63 @@ function displayTable(columns, rows, total_rows) {
     scrollContainer.appendChild(table);
     wrapper.appendChild(scrollContainer);
     uploadList.appendChild(wrapper);
+}
+function displayProfile(data) {
+    // Show the profile section
+    const profileSection = document.getElementById('profile-section');
+    profileSection.style.display = 'block';
+
+    // Fill in the cards
+    document.getElementById('total-rows').textContent = data.total_rows;
+    document.getElementById('total-columns').textContent = data.total_columns;
+    document.getElementById('total-missing').textContent = data.total_missing;
+    document.getElementById('total-duplicates').textContent = data.total_duplicates;
+
+    // Fill column details table
+    const profileBody = document.getElementById('profile-table-body');
+    profileBody.innerHTML = '';
+    data.column_details.forEach(col => {
+        const tr = document.createElement('tr');
+
+        // Assign color class based on missing %
+        let missingClass = 'missing-none';
+        if (col.missing_percent > 30) missingClass = 'missing-high';
+        else if (col.missing_percent > 0) missingClass = 'missing-low';
+
+        tr.innerHTML = `
+            <td>${col.name}</td>
+            <td>${col.dtype}</td>
+            <td class="${missingClass}">${col.missing}</td>
+            <td class="${missingClass}">${col.missing_percent}%</td>
+            <td>${col.unique}</td>
+        `;
+        profileBody.appendChild(tr);
+    });
+
+    // Fill statistics table
+    const statsBody = document.getElementById('stats-table-body');
+    statsBody.innerHTML = '';
+
+    if (data.stats.length === 0) {
+        statsBody.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align:center; color:#6b7280;">
+                    No numeric columns found
+                </td>
+            </tr>`;
+        return;
+    }
+
+    data.stats.forEach(stat => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${stat.column}</td>
+            <td>${stat.min ?? '—'}</td>
+            <td>${stat.max ?? '—'}</td>
+            <td>${stat.mean ?? '—'}</td>
+            <td>${stat.median ?? '—'}</td>
+            <td>${stat.std ?? '—'}</td>
+        `;
+        statsBody.appendChild(tr);
+    });
 }

@@ -47,6 +47,73 @@
 
     <div id="upload-list" class="upload-list"></div>
 
+    <!-- Data Profile Section -->
+<div id="profile-section" class="profile-section" style="display:none;">
+    
+    <!-- Header -->
+    <h2 class="section-title">Data Profile</h2>
+
+    <!-- Row/Column Count Cards -->
+    <div class="profile-cards">
+        <div class="profile-card">
+            <span class="card-label">Total Rows</span>
+            <span class="card-value" id="total-rows">—</span>
+        </div>
+        <div class="profile-card">
+            <span class="card-label">Total Columns</span>
+            <span class="card-value" id="total-columns">—</span>
+        </div>
+        <div class="profile-card">
+            <span class="card-label">Missing Values</span>
+            <span class="card-value" id="total-missing">—</span>
+        </div>
+        <div class="profile-card">
+            <span class="card-label">Duplicate Rows</span>
+            <span class="card-value" id="total-duplicates">—</span>
+        </div>
+    </div>
+
+    <!-- Column Details Table -->
+    <h3 class="subsection-title">Column Details</h3>
+    <div class="table-scroll">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Column Name</th>
+                    <th>Data Type</th>
+                    <th>Missing Values</th>
+                    <th>Missing %</th>
+                    <th>Unique Values</th>
+                </tr>
+            </thead>
+            <tbody id="profile-table-body">
+                <!-- filled by JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Basic Statistics -->
+    <h3 class="subsection-title">Basic Statistics (Numeric Columns)</h3>
+    <div class="table-scroll">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Column</th>
+                    <th>Min</th>
+                    <th>Max</th>
+                    <th>Mean</th>
+                    <th>Median</th>
+                    <th>Std Dev</th>
+                </tr>
+            </thead>
+            <tbody id="stats-table-body">
+                <!-- filled by JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
     <script>
       window.addEventListener("load", async function () {
         try {

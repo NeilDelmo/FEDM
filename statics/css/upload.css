@@ -238,3 +238,84 @@
     width: 100%;
     overflow-x: auto; 
 }
+
+/* Profile Section */
+.profile-section {
+    margin-top: 40px;
+    padding: 24px;
+    background-color: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+}
+
+/* Section Title */
+.section-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 20px;
+}
+
+.subsection-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-top: 28px;
+    margin-bottom: 12px;
+}
+
+/* Cards Row */
+.profile-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+/* Individual Card */
+.profile-card {
+    background-color: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.card-label {
+    font-size: 0.8rem;
+    color: #6b7280;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.card-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+/* Missing value badge in table */
+.missing-high {
+    color: #ef4444;
+    font-weight: 600;
+}
+
+.missing-low {
+    color: #10b981;
+    font-weight: 600;
+}
+
+.missing-none {
+    color: #6b7280;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .profile-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
