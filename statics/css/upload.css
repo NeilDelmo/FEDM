@@ -155,3 +155,65 @@
     background: #10b981;
 }
 
+/* Row message */
+.row-message {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin-bottom: 8px;
+}
+
+/* Scrollable container */
+.table-scroll {
+    overflow-x: auto;   /* horizontal scroll for many columns */
+    overflow-y: auto;   /* vertical scroll for many rows */
+    max-height: 450px;  /* fixed height */
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+/* Table */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+/* Header */
+.data-table thead th {
+    background-color: #1e293b;
+    color: #f8fafc;
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    position: sticky;  /* header stays visible when scrolling */
+    top: 0;
+    z-index: 1;
+    white-space: nowrap;
+}
+
+/* Rows */
+.data-table tbody td {
+    padding: 10px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    white-space: nowrap;
+    color: #374151;
+}
+
+/* Alternating row colors */
+.row-even {
+    background-color: #ffffff;
+}
+.row-odd {
+    background-color: #f9fafb;
+}
+
+/* Hover effect */
+.data-table tbody tr:hover {
+    background-color: #eff6ff;
+    cursor: default;
+}
+
+/* Wrapper */
+.table-wrapper {
+    margin-top: 24px;
+}
