@@ -82,6 +82,133 @@ def upload():
         'stats': stats
     })
 
+@app.route('/clean', methods=['POST'])
+def clean():
+    data = request.get_json()
+    
+    # Rebuild dataframe from the rows sent by frontend
+    df = pd.DataFrame(data['rows'])
+    action = data['action']
+    result_message = ''
+
+    # ─── 1. Handle Missing Values ───────────────────────────
+    if action == 'missing':
+        column = data['column']
+        method = data['method']
+        before = int(df.isnull().sum().sum())
+
+        if column == 'all':
+            cols = df.columns
+        else:
+            cols = [column]
+
+        for col in cols:
+            if method == 'drop':
+                df = df.dropna(subset=[col])
+            elif method == 'mean':
+                if pd.api.types.is_numeric_dtype(df[col]):
+                    df[col] = df[col].fillna(df[col].mean())
+            elif method == 'median':
+                if pd.api.types.is_numeric_dtype(df[col]):
+                    df[col] = df[col].fillna(df[col].median())
+            elif method == 'mode':
+                df[col] = df[col].fillna(df[col].mode()[0])
+            elif method == 'custom':
+                df[col] = df[col].fillna(data['custom_value'])
+
+        after = int(df.isnull().sum().sum())
+        result_message = f'Missing values reduced from {before} to {after}'
+
+    # ─── 2. Remove Duplicates ────────────────────────────────
+    elif action == 'duplicates':
+        keep = data['keep']
+        before = len(df)
+
+        if keep == 'false':
+            df = df.drop_duplicates(keep=False)
+        else:
+            df = df.drop_duplicates(keep=keep)
+
+        after = len(df)
+        removed = before - after
+        result_message = f'Removed {removed} duplicate rows ({before} → {after} rows)'
+
+    # ─── 3. Convert Data Types ───────────────────────────────
+    elif action == 'dtype':
+        column = data['column']
+        target = data['target']
+
+        try:
+            if target == 'string':
+                df[column] = df[column].astype(str)
+            elif target == 'integer':
+                df[column] = pd.to_numeric(df[column], errors='coerce').astype('Int64')
+            elif target == 'float':
+                df[column] = pd.to_numeric(df[column], errors='coerce')
+            elif target == 'datetime':
+                df[column] = pd.to_datetime(df[column], errors='coerce')
+            elif target == 'boolean':
+                df[column] = df[column].astype(bool)
+
+            result_message = f'Column "{column}" converted to {target}'
+        except Exception as e:
+            return jsonify({'error': str(e)}), 400
+
+    # ─── 4. Standardize Formats ──────────────────────────────
+    elif action == 'format':
+        column = data['column']
+        method = data['method']
+
+        if df[column].dtype == object:
+            if method == 'uppercase':
+                df[column] = df[column].str.upper()
+            elif method == 'lowercase':
+                df[column] = df[column].str.lower()
+            elif method == 'titlecase':
+                df[column] = df[column].str.title()
+            elif method == 'strip':
+                df[column] = df[column].str.strip()
+
+            result_message = f'Column "{column}" formatted to {method}'
+        else:
+            return jsonify({'error': f'Column "{column}" is not a text column'}), 400
+
+    # ─── 5. Filter Invalid Data ──────────────────────────────
+    elif action == 'filter':
+        column = data['column']
+        condition = data['condition']
+        value = data['value']
+        before = len(df)
+
+        try:
+            if condition == 'greater_than':
+                df = df[pd.to_numeric(df[column], errors='coerce') > float(value)]
+            elif condition == 'less_than':
+                df = df[pd.to_numeric(df[column], errors='coerce') < float(value)]
+            elif condition == 'equals':
+                df = df[df[column].astype(str) == str(value)]
+            elif condition == 'not_equals':
+                df = df[df[column].astype(str) != str(value)]
+            elif condition == 'contains':
+                df = df[df[column].astype(str).str.contains(value, na=False)]
+            elif condition == 'not_contains':
+                df = df[~df[column].astype(str).str.contains(value, na=False)]
+
+            after = len(df)
+            result_message = f'Filtered "{column}": {before} → {after} rows remaining'
+        except Exception as e:
+            return jsonify({'error': str(e)}), 400
+
+    # ─── Send back cleaned data ──────────────────────────────
+    df = df.where(pd.notnull(df), None)
+    rows = json.loads(df.to_json(orient='records', date_format='iso'))
+
+    return jsonify({
+        'columns': df.columns.tolist(),
+        'rows': rows,
+        'total_rows': len(df),
+        'message': result_message
+    })
 
 if __name__ == '__main__':
 	app.run(debug=True)

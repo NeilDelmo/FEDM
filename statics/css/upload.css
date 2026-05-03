@@ -319,3 +319,131 @@
         grid-template-columns: repeat(2, 1fr);
     }
 }
+
+/* Cleaning Section */
+.cleaning-section {
+    margin-top: 40px;
+    padding: 24px;
+    background-color: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+}
+
+/* Cleaning Card */
+.cleaning-card {
+    background-color: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+}
+
+.cleaning-card-header {
+    margin-bottom: 16px;
+}
+
+.cleaning-card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 4px;
+}
+
+.cleaning-card-desc {
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+/* Options Row */
+.cleaning-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+.cleaning-option-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 180px;
+}
+
+.cleaning-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #374151;
+}
+
+.cleaning-select,
+.cleaning-input {
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    color: #1e293b;
+    background-color: #ffffff;
+    outline: none;
+}
+
+.cleaning-select:focus,
+.cleaning-input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Apply Button */
+.cleaning-btn {
+    padding: 8px 20px;
+    background-color: #1e293b;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    height: 36px;
+    align-self: flex-end;
+    transition: background-color 0.2s;
+}
+
+.cleaning-btn:hover {
+    background-color: #3b82f6;
+}
+
+/* Cleaning Log */
+.cleaning-log {
+    margin-top: 24px;
+    background-color: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 20px;
+}
+
+.log-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.log-list li {
+    font-size: 0.875rem;
+    color: #374151;
+    padding: 8px 12px;
+    background-color: #ffffff;
+    border-left: 3px solid #10b981;
+    border-radius: 4px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .cleaning-options {
+        flex-direction: column;
+    }
+    .cleaning-option-group {
+        min-width: 100%;
+    }
+}

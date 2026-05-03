@@ -2,6 +2,7 @@ const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('fileInput');
 const uploadList = document.getElementById('upload-list');
 let hasActiveUpload = false;
+let currentData = null;
 
 function showSingleFileOnlyMessage() {
     const existingNotice = document.querySelector('.single-file-notice');
@@ -111,9 +112,11 @@ function uploadFile(file) {
             status.style.color = '#10b981';
             progressBar.style.width = '100%';
             progressBar.classList.add('completed');
+            currentData = data;
 
             displayTable(data.columns, data.rows, data.total_rows);
             displayProfile(data);
+            displayCleaning(data);
         } else {
             status.textContent = 'Error';
             status.style.color = '#ef4444';
@@ -244,4 +247,104 @@ function displayProfile(data) {
         `;
         statsBody.appendChild(tr);
     });
+}
+
+function displayCleaning(data) {
+    const cleaningSection = document.getElementById('cleaning-section');
+    cleaningSection.style.display = 'block';
+
+    // Populate all column dropdowns
+    const dropdowns = [
+        'missing-column',
+        'dtype-column', 
+        'format-column',
+        'filter-column'
+    ];
+
+    dropdowns.forEach(id => {
+        const select = document.getElementById(id);
+        // Clear existing options except first if it has "All Columns"
+        if (id === 'missing-column') {
+            select.innerHTML = '<option value="all">All Columns</option>';
+        } else {
+            select.innerHTML = '';
+        }
+        data.columns.forEach(col => {
+            const option = document.createElement('option');
+            option.value = col;
+            option.textContent = col;
+            select.appendChild(option);
+        });
+    });
+
+    // Show/hide custom value input
+    document.getElementById('missing-method').addEventListener('change', function() {
+        const customGroup = document.getElementById('custom-value-group');
+        customGroup.style.display = this.value === 'custom' ? 'block' : 'none';
+    });
+
+    // Apply buttons
+    document.getElementById('apply-missing').onclick = () => applyClean('missing');
+    document.getElementById('apply-duplicates').onclick = () => applyClean('duplicates');
+    document.getElementById('apply-dtype').onclick = () => applyClean('dtype');
+    document.getElementById('apply-format').onclick = () => applyClean('format');
+    document.getElementById('apply-filter').onclick = () => applyClean('filter');
+}
+function applyClean(action) {
+    if (!currentData) return;
+
+    let payload = { action: action, rows: currentData.rows };
+
+    if (action === 'missing') {
+        payload.column = document.getElementById('missing-column').value;
+        payload.method = document.getElementById('missing-method').value;
+        payload.custom_value = document.getElementById('custom-value').value;
+    } else if (action === 'duplicates') {
+        payload.keep = document.getElementById('duplicate-keep').value;
+    } else if (action === 'dtype') {
+        payload.column = document.getElementById('dtype-column').value;
+        payload.target = document.getElementById('dtype-target').value;
+    } else if (action === 'format') {
+        payload.column = document.getElementById('format-column').value;
+        payload.method = document.getElementById('format-method').value;
+    } else if (action === 'filter') {
+        payload.column = document.getElementById('filter-column').value;
+        payload.condition = document.getElementById('filter-condition').value;
+        payload.value = document.getElementById('filter-value').value;
+    }
+
+    fetch('/clean', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            alert('Error: ' + data.error);
+            return;
+        }
+
+        // Update current data
+        currentData = data;
+
+        // Update table with cleaned data
+        displayTable(data.columns, data.rows, data.total_rows);
+
+        // Add to cleaning log
+        addToLog(data.message);
+    })
+    .catch(err => console.error('Clean error:', err));
+}
+
+function addToLog(message) {
+    const logSection = document.getElementById('cleaning-log');
+    const logList = document.getElementById('cleaning-log-list');
+
+    logSection.style.display = 'block';
+
+    const li = document.createElement('li');
+    const time = new Date().toLocaleTimeString();
+    li.textContent = `[${time}] ${message}`;
+    logList.insertBefore(li, logList.firstChild); // newest on top
 }

@@ -113,6 +113,153 @@
     </div>
 
 </div>
+<!-- Data Cleaning Section -->
+<div id="cleaning-section" class="cleaning-section" style="display:none;">
+    
+    <h2 class="section-title">Data Cleaning</h2>
+
+    <!-- Missing Values -->
+    <div class="cleaning-card">
+        <div class="cleaning-card-header">
+            <h3 class="cleaning-card-title">Handle Missing Values</h3>
+            <p class="cleaning-card-desc">Choose how to handle empty/null values in your dataset</p>
+        </div>
+        <div class="cleaning-options">
+            <div class="cleaning-option-group">
+                <label class="cleaning-label">Select Column</label>
+                <select id="missing-column" class="cleaning-select">
+                    <option value="all">All Columns</option>
+                </select>
+            </div>
+            <div class="cleaning-option-group">
+                <label class="cleaning-label">Method</label>
+                <select id="missing-method" class="cleaning-select">
+                    <option value="drop">Drop rows with missing values</option>
+                    <option value="mean">Fill with Mean</option>
+                    <option value="median">Fill with Median</option>
+                    <option value="mode">Fill with Mode</option>
+                    <option value="custom">Fill with Custom Value</option>
+                </select>
+            </div>
+            <div class="cleaning-option-group" id="custom-value-group" style="display:none;">
+                <label class="cleaning-label">Custom Value</label>
+                <input type="text" id="custom-value" class="cleaning-input" placeholder="Enter value..." />
+            </div>
+            <button class="cleaning-btn" id="apply-missing">Apply</button>
+        </div>
+    </div>
+
+    <!-- Remove Duplicates -->
+    <div class="cleaning-card">
+        <div class="cleaning-card-header">
+            <h3 class="cleaning-card-title">Remove Duplicates</h3>
+            <p class="cleaning-card-desc">Remove duplicate rows from your dataset</p>
+        </div>
+        <div class="cleaning-options">
+            <div class="cleaning-option-group">
+                <label class="cleaning-label">Keep</label>
+                <select id="duplicate-keep" class="cleaning-select">
+                    <option value="first">Keep First Occurrence</option>
+                    <option value="last">Keep Last Occurrence</option>
+                    <option value="false">Remove All Duplicates</option>
+                </select>
+            </div>
+            <button class="cleaning-btn" id="apply-duplicates">Apply</button>
+        </div>
+    </div>
+
+    <!-- Convert Data Types -->
+    <div class="cleaning-card">
+        <div class="cleaning-card-header">
+            <h3 class="cleaning-card-title">Convert Data Types</h3>
+            <p class="cleaning-card-desc">Change the data type of a column</p>
+        </div>
+        <div class="cleaning-options">
+            <div class="cleaning-option-group">
+                <label class="cleaning-label">Select Column</label>
+                <select id="dtype-column" class="cleaning-select">
+                    <!-- filled by JavaScript -->
+                </select>
+            </div>
+            <div class="cleaning-option-group">
+                <label class="cleaning-label">Convert To</label>
+                <select id="dtype-target" class="cleaning-select">
+                    <option value="string">Text (String)</option>
+                    <option value="integer">Integer (Whole Number)</option>
+                    <option value="float">Float (Decimal Number)</option>
+                    <option value="datetime">Date / Time</option>
+                    <option value="boolean">Boolean (True/False)</option>
+                </select>
+            </div>
+            <button class="cleaning-btn" id="apply-dtype">Apply</button>
+        </div>
+    </div>
+
+    <!-- Standardize Formats -->
+    <div class="cleaning-card">
+        <div class="cleaning-card-header">
+            <h3 class="cleaning-card-title">Standardize Formats</h3>
+            <p class="cleaning-card-desc">Standardize text formatting in a column</p>
+        </div>
+        <div class="cleaning-options">
+            <div class="cleaning-option-group">
+                <label class="cleaning-label">Select Column</label>
+                <select id="format-column" class="cleaning-select">
+                    <!-- filled by JavaScript -->
+                </select>
+            </div>
+            <div class="cleaning-option-group">
+                <label class="cleaning-label">Format</label>
+                <select id="format-method" class="cleaning-select">
+                    <option value="uppercase">UPPERCASE</option>
+                    <option value="lowercase">lowercase</option>
+                    <option value="titlecase">Title Case</option>
+                    <option value="strip">Remove Extra Spaces</option>
+                </select>
+            </div>
+            <button class="cleaning-btn" id="apply-format">Apply</button>
+        </div>
+    </div>
+
+    <!-- Filter Invalid Data -->
+    <div class="cleaning-card">
+        <div class="cleaning-card-header">
+            <h3 class="cleaning-card-title">Filter Invalid Data</h3>
+            <p class="cleaning-card-desc">Remove rows based on a condition</p>
+        </div>
+        <div class="cleaning-options">
+            <div class="cleaning-option-group">
+                <label class="cleaning-label">Select Column</label>
+                <select id="filter-column" class="cleaning-select">
+                    <!-- filled by JavaScript -->
+                </select>
+            </div>
+            <div class="cleaning-option-group">
+                <label class="cleaning-label">Condition</label>
+                <select id="filter-condition" class="cleaning-select">
+                    <option value="greater_than">Greater Than</option>
+                    <option value="less_than">Less Than</option>
+                    <option value="equals">Equals</option>
+                    <option value="not_equals">Not Equals</option>
+                    <option value="contains">Contains (text)</option>
+                    <option value="not_contains">Does Not Contain (text)</option>
+                </select>
+            </div>
+            <div class="cleaning-option-group">
+                <label class="cleaning-label">Value</label>
+                <input type="text" id="filter-value" class="cleaning-input" placeholder="Enter value..." />
+            </div>
+            <button class="cleaning-btn" id="apply-filter">Apply</button>
+        </div>
+    </div>
+
+    <!-- Cleaning Log -->
+    <div class="cleaning-log" id="cleaning-log" style="display:none;">
+        <h3 class="subsection-title">Cleaning Log</h3>
+        <ul id="cleaning-log-list" class="log-list"></ul>
+    </div>
+
+</div>
 
     <script>
       window.addEventListener("load", async function () {
