@@ -284,11 +284,11 @@ function displayCleaning(data) {
     });
 
     // Apply buttons
-    document.getElementById('apply-missing').onclick = () => applyClean('missing');
-    document.getElementById('apply-duplicates').onclick = () => applyClean('duplicates');
-    document.getElementById('apply-dtype').onclick = () => applyClean('dtype');
-    document.getElementById('apply-format').onclick = () => applyClean('format');
-    document.getElementById('apply-filter').onclick = () => applyClean('filter');
+    document.getElementById('apply-missing').onclick = (e) => { e.preventDefault(); applyClean('missing'); };
+    document.getElementById('apply-duplicates').onclick = (e) => { e.preventDefault(); applyClean('duplicates'); };
+    document.getElementById('apply-dtype').onclick = (e) => { e.preventDefault(); applyClean('dtype'); };
+    document.getElementById('apply-format').onclick = (e) => { e.preventDefault(); applyClean('format'); };
+    document.getElementById('apply-filter').onclick = (e) => { e.preventDefault(); applyClean('filter'); };
 }
 function applyClean(action) {
     if (!currentData) return;
@@ -333,6 +333,8 @@ function applyClean(action) {
 
         // Add to cleaning log
         addToLog(data.message);
+
+        showModal(data.message, data);
     })
     .catch(err => console.error('Clean error:', err));
 }
@@ -347,4 +349,56 @@ function addToLog(message) {
     const time = new Date().toLocaleTimeString();
     li.textContent = `[${time}] ${message}`;
     logList.insertBefore(li, logList.firstChild); // newest on top
+}
+function showModal(message, data) {
+    const modal = document.getElementById('clean-modal');
+    const modalMessage = document.getElementById('modal-message');
+    const modalStats = document.getElementById('modal-stats');
+
+    modalMessage.textContent = message;
+
+    // Show before/after stats
+    modalStats.innerHTML = `
+        <div class="modal-stat-row">
+            <span class="modal-stat-label">Rows after cleaning</span>
+            <span class="modal-stat-value">${data.total_rows}</span>
+        </div>
+        <div class="modal-stat-row">
+            <span class="modal-stat-label">Total columns</span>
+            <span class="modal-stat-value">${data.columns.length}</span>
+        </div>
+    `;
+    modalStats.classList.add('visible');
+    modal.style.display = 'flex';
+
+    // Close button
+    document.getElementById('modal-close').onclick = () => {
+        modal.style.display = 'none';
+    };
+
+    // Close when clicking outside
+    modal.onclick = (e) => {
+        if (e.target === modal) modal.style.display = 'none';
+    };
+
+    // Export buttons
+    document.getElementById('modal-export-csv').onclick = () => exportData('csv', data);
+    document.getElementById('modal-export-excel').onclick = () => exportData('excel', data);
+}
+function exportData(format, data) {
+    fetch('/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ format: format, rows: data.rows, columns: data.columns })
+    })
+    .then(res => res.blob())
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = format === 'csv' ? 'cleaned_data.csv' : 'cleaned_data.xlsx';
+        a.click();
+        window.URL.revokeObjectURL(url);
+    })
+    .catch(err => console.error('Export error:', err));
 }
