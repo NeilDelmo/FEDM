@@ -1,8 +1,8 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
 import pandas as pd
 import json
 import os
-
+import io
 
 app = Flask(__name__, static_folder='statics', static_url_path='/statics')
 
@@ -209,6 +209,33 @@ def clean():
         'total_rows': len(df),
         'message': result_message
     })
+
+@app.route('/export', methods=['POST'])
+def export():
+    data = request.get_json()
+    df = pd.DataFrame(data['rows'])[data['columns']]
+    format = data['format']
+
+    if format == 'csv':
+        output = io.StringIO()
+        df.to_csv(output, index=False)
+        output.seek(0)
+        return send_file(
+            io.BytesIO(output.getvalue().encode()),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name='cleaned_data.csv'
+        )
+    else:
+        output = io.BytesIO()
+        df.to_excel(output, index=False)
+        output.seek(0)
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name='cleaned_data.xlsx'
+        )
 
 if __name__ == '__main__':
 	app.run(debug=True)
