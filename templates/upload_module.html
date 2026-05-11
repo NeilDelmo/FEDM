@@ -19,283 +19,342 @@
       src="https://better-bonefish-41.clerk.accounts.dev/npm/@clerk/clerk-js@6/dist/clerk.browser.js"
       type="text/javascript"
     ></script>
+    <script src="/statics/js/ui.js" defer></script>
+    <!-- defines setStep -->
     <script src="/statics/js/upload.js" defer></script>
+    <!-- uses setStep, defines currentData -->
+    <script src="/statics/js/display.js" defer></script>
+    <!-- uses currentData, setStep -->
+    <script src="/statics/js/cleaning.js" defer></script>
+    <!-- uses currentData, displayTable -->
+    <!-- Keep the existing styles from your upload.css and add these new workflow styles -->
   </head>
   <body>
     <nav class="navbar">
-      <span class="nav-title">Data Analytics System</span>
+      <div class="nav-brand">
+        <div class="nav-logo"><i>A</i></div>
+        <span class="nav-title">Data Analytics System</span>
+      </div>
+
+      <div class="stepper" id="stepper">
+        <div class="step active" data-step="0" onclick="setStep(0)">
+          <div class="step-circle">1</div>
+          <span class="step-label">Upload</span>
+        </div>
+        <div class="step-connector" id="c1"></div>
+        <div class="step" data-step="1" onclick="setStep(1)">
+          <div class="step-circle">2</div>
+          <span class="step-label">Profile</span>
+        </div>
+        <div class="step-connector" id="c2"></div>
+        <div class="step" data-step="2" onclick="setStep(2)">
+          <div class="step-circle">3</div>
+          <span class="step-label">Clean</span>
+        </div>
+      </div>
+
       <div id="user-button"></div>
     </nav>
 
-    <div id="drop-zone" class="drop-zone">
-      <div id="drop-default">
-        <div class ="icon-container">
-            <img src ="statics/icons/csv.png" alt="CSV Icon" class="file-icon-img" />
-            <img src ="statics/icons/xls.png" alt="xls Icon" class="file-icon-img" />
-        </div>
-        <span class="drop-zone__prompt">Drop files here or click to upload</span>
-      </div>
-      <input
-        type="file"
-        name="myFiles"
-        id="fileInput"
-        class="drop-zone__input"
-        accept=".csv, .xlsx"
-        style="display: none;"
-      />
+    <div id="breadcrumb" class="breadcrumb-trail">
+      Step <span id="bc-step">1</span> of 3 —
+      <span id="bc-title">Upload File</span>
     </div>
 
-    <div id="upload-list" class="upload-list"></div>
+    <!-- Upload Section -->
+    <div id="view-upload" class="view-section active-view">
+      <div id="drop-zone" class="drop-zone">
+        <div id="drop-default">
+          <div class="icon-container">
+            <img
+              src="statics/icons/csv.png"
+              alt="CSV Icon"
+              class="file-icon-img"
+            />
+            <img
+              src="statics/icons/xls.png"
+              alt="xls Icon"
+              class="file-icon-img"
+            />
+          </div>
+          <span class="drop-zone__prompt"
+            >Drop files here or click to upload</span
+          >
+        </div>
+        <input
+          type="file"
+          name="myFiles"
+          id="fileInput"
+          class="drop-zone__input"
+          accept=".csv, .xlsx"
+          style="display: none"
+        />
+      </div>
+
+      <div id="upload-list" class="upload-list"></div>
+    </div>
+    <!-- Close view-upload -->
 
     <!-- Data Profile Section -->
-<div id="profile-section" class="profile-section" style="display:none;">
-    
-    <!-- Header -->
-    <h2 class="section-title">Data Profile</h2>
+    <div id="view-profile" class="view-section">
+      <!-- Header -->
+      <h2 class="section-title">Data Profile</h2>
 
-    <!-- Row/Column Count Cards -->
-    <div class="profile-cards">
+      <!-- Row/Column Count Cards -->
+      <div class="profile-cards">
         <div class="profile-card">
-            <span class="card-label">Total Rows</span>
-            <span class="card-value" id="total-rows">—</span>
+          <span class="card-label">Total Rows</span>
+          <span class="card-value" id="total-rows">—</span>
         </div>
         <div class="profile-card">
-            <span class="card-label">Total Columns</span>
-            <span class="card-value" id="total-columns">—</span>
+          <span class="card-label">Total Columns</span>
+          <span class="card-value" id="total-columns">—</span>
         </div>
         <div class="profile-card">
-            <span class="card-label">Missing Values</span>
-            <span class="card-value" id="total-missing">—</span>
+          <span class="card-label">Missing Values</span>
+          <span class="card-value" id="total-missing">—</span>
         </div>
         <div class="profile-card">
-            <span class="card-label">Duplicate Rows</span>
-            <span class="card-value" id="total-duplicates">—</span>
+          <span class="card-label">Duplicate Rows</span>
+          <span class="card-value" id="total-duplicates">—</span>
         </div>
-    </div>
+      </div>
 
-    <!-- Column Details Table -->
-    <h3 class="subsection-title">Column Details</h3>
-    <div class="table-scroll">
+      <!-- Column Details Table -->
+      <h3 class="subsection-title">Column Details</h3>
+      <div class="table-scroll">
         <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Column Name</th>
-                    <th>Data Type</th>
-                    <th>Missing Values</th>
-                    <th>Missing %</th>
-                    <th>Unique Values</th>
-                </tr>
-            </thead>
-            <tbody id="profile-table-body">
-                <!-- filled by JavaScript -->
-            </tbody>
+          <thead>
+            <tr>
+              <th>Column Name</th>
+              <th>Data Type</th>
+              <th>Missing Values</th>
+              <th>Missing %</th>
+              <th>Unique Values</th>
+            </tr>
+          </thead>
+          <tbody id="profile-table-body">
+            <!-- filled by JavaScript -->
+          </tbody>
         </table>
-    </div>
+      </div>
 
-    <!-- Basic Statistics -->
-    <h3 class="subsection-title">Basic Statistics (Numeric Columns)</h3>
-    <div class="table-scroll">
+      <!-- Basic Statistics -->
+      <h3 class="subsection-title">Basic Statistics (Numeric Columns)</h3>
+      <div class="table-scroll">
         <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Column</th>
-                    <th>Min</th>
-                    <th>Max</th>
-                    <th>Mean</th>
-                    <th>Median</th>
-                    <th>Std Dev</th>
-                </tr>
-            </thead>
-            <tbody id="stats-table-body">
-                <!-- filled by JavaScript -->
-            </tbody>
+          <thead>
+            <tr>
+              <th>Column</th>
+              <th>Min</th>
+              <th>Max</th>
+              <th>Mean</th>
+              <th>Median</th>
+              <th>Std Dev</th>
+            </tr>
+          </thead>
+          <tbody id="stats-table-body">
+            <!-- filled by JavaScript -->
+          </tbody>
         </table>
+      </div>
     </div>
+    <!-- Close view-profile -->
 
-</div>
-<!-- Data Cleaning Section -->
-<div id="cleaning-section" class="cleaning-section" style="display:none;">
-    
-    <h2 class="section-title">Data Cleaning</h2>
+    <!-- Data Cleaning Section -->
+    <div id="view-clean" class="view-section">
+      <h2 class="section-title">Data Cleaning</h2>
 
-    <!-- Missing Values -->
-    <div class="cleaning-card">
+      <!-- Missing Values -->
+      <div class="cleaning-card">
         <div class="cleaning-card-header">
-            <h3 class="cleaning-card-title">Handle Missing Values</h3>
-            <p class="cleaning-card-desc">Choose how to handle empty/null values in your dataset</p>
+          <h3 class="cleaning-card-title">Handle Missing Values</h3>
+          <p class="cleaning-card-desc">
+            Choose how to handle empty/null values in your dataset
+          </p>
         </div>
         <div class="cleaning-options">
-            <div class="cleaning-option-group">
-                <label class="cleaning-label">Select Column</label>
-                <select id="missing-column" class="cleaning-select">
-                    <option value="all">All Columns</option>
-                </select>
-            </div>
-            <div class="cleaning-option-group">
-                <label class="cleaning-label">Method</label>
-                <select id="missing-method" class="cleaning-select">
-                    <option value="drop">Drop rows with missing values</option>
-                    <option value="mean">Fill with Mean</option>
-                    <option value="median">Fill with Median</option>
-                    <option value="mode">Fill with Mode</option>
-                    <option value="custom">Fill with Custom Value</option>
-                </select>
-            </div>
-            <div class="cleaning-option-group" id="custom-value-group" style="display:none;">
-                <label class="cleaning-label">Custom Value</label>
-                <input type="text" id="custom-value" class="cleaning-input" placeholder="Enter value..." />
-            </div>
-            <button type="button" class="cleaning-btn" id="apply-missing">Apply</button>
+          <div class="cleaning-option-group">
+            <label class="cleaning-label">Select Column</label>
+            <select id="missing-column" class="cleaning-select">
+              <option value="all">All Columns</option>
+            </select>
+          </div>
+          <div class="cleaning-option-group">
+            <label class="cleaning-label">Method</label>
+            <select id="missing-method" class="cleaning-select">
+              <option value="drop">Drop rows with missing values</option>
+              <option value="mean">Fill with Mean</option>
+              <option value="median">Fill with Median</option>
+              <option value="mode">Fill with Mode</option>
+              <option value="custom">Fill with Custom Value</option>
+            </select>
+          </div>
+          <div
+            class="cleaning-option-group"
+            id="custom-value-group"
+            style="display: none"
+          >
+            <label class="cleaning-label">Custom Value</label>
+            <input
+              type="text"
+              id="custom-value"
+              class="cleaning-input"
+              placeholder="Enter value..."
+            />
+          </div>
+          <button type="button" class="cleaning-btn" id="apply-missing">
+            Apply
+          </button>
         </div>
-    </div>
+      </div>
 
-    <!-- Remove Duplicates -->
-    <div class="cleaning-card">
+      <!-- Remove Duplicates -->
+      <div class="cleaning-card">
         <div class="cleaning-card-header">
-            <h3 class="cleaning-card-title">Remove Duplicates</h3>
-            <p class="cleaning-card-desc">Remove duplicate rows from your dataset</p>
+          <h3 class="cleaning-card-title">Remove Duplicates</h3>
+          <p class="cleaning-card-desc">
+            Remove duplicate rows from your dataset
+          </p>
         </div>
         <div class="cleaning-options">
-            <div class="cleaning-option-group">
-                <label class="cleaning-label">Keep</label>
-                <select id="duplicate-keep" class="cleaning-select">
-                    <option value="first">Keep First Occurrence</option>
-                    <option value="last">Keep Last Occurrence</option>
-                    <option value="false">Remove All Duplicates</option>
-                </select>
-            </div>
-            <button type="button" class="cleaning-btn" id="apply-duplicates">Apply</button>
+          <div class="cleaning-option-group">
+            <label class="cleaning-label">Keep</label>
+            <select id="duplicate-keep" class="cleaning-select">
+              <option value="first">Keep First Occurrence</option>
+              <option value="last">Keep Last Occurrence</option>
+              <option value="false">Remove All Duplicates</option>
+            </select>
+          </div>
+          <button type="button" class="cleaning-btn" id="apply-duplicates">
+            Apply
+          </button>
         </div>
-    </div>
+      </div>
 
-    <!-- Convert Data Types -->
-    <div class="cleaning-card">
+      <!-- Convert Data Types -->
+      <div class="cleaning-card">
         <div class="cleaning-card-header">
-            <h3 class="cleaning-card-title">Convert Data Types</h3>
-            <p class="cleaning-card-desc">Change the data type of a column</p>
+          <h3 class="cleaning-card-title">Convert Data Types</h3>
+          <p class="cleaning-card-desc">Change the data type of a column</p>
         </div>
         <div class="cleaning-options">
-            <div class="cleaning-option-group">
-                <label class="cleaning-label">Select Column</label>
-                <select id="dtype-column" class="cleaning-select">
-                    <!-- filled by JavaScript -->
-                </select>
-            </div>
-            <div class="cleaning-option-group">
-                <label class="cleaning-label">Convert To</label>
-                <select id="dtype-target" class="cleaning-select">
-                    <option value="string">Text (String)</option>
-                    <option value="integer">Integer (Whole Number)</option>
-                    <option value="float">Float (Decimal Number)</option>
-                    <option value="datetime">Date / Time</option>
-                    <option value="boolean">Boolean (True/False)</option>
-                </select>
-            </div>
-            <button type="button" class="cleaning-btn" id="apply-dtype">Apply</button>
+          <div class="cleaning-option-group">
+            <label class="cleaning-label">Select Column</label>
+            <select id="dtype-column" class="cleaning-select">
+              <!-- filled by JavaScript -->
+            </select>
+          </div>
+          <div class="cleaning-option-group">
+            <label class="cleaning-label">Convert To</label>
+            <select id="dtype-target" class="cleaning-select">
+              <option value="string">Text (String)</option>
+              <option value="integer">Integer (Whole Number)</option>
+              <option value="float">Float (Decimal Number)</option>
+              <option value="datetime">Date / Time</option>
+              <option value="boolean">Boolean (True/False)</option>
+            </select>
+          </div>
+          <button type="button" class="cleaning-btn" id="apply-dtype">
+            Apply
+          </button>
         </div>
-    </div>
+      </div>
 
-    <!-- Standardize Formats -->
-    <div class="cleaning-card">
+      <!-- Standardize Formats -->
+      <div class="cleaning-card">
         <div class="cleaning-card-header">
-            <h3 class="cleaning-card-title">Standardize Formats</h3>
-            <p class="cleaning-card-desc">Standardize text formatting in a column</p>
+          <h3 class="cleaning-card-title">Standardize Formats</h3>
+          <p class="cleaning-card-desc">
+            Standardize text formatting in a column
+          </p>
         </div>
         <div class="cleaning-options">
-            <div class="cleaning-option-group">
-                <label class="cleaning-label">Select Column</label>
-                <select id="format-column" class="cleaning-select">
-                    <!-- filled by JavaScript -->
-                </select>
-            </div>
-            <div class="cleaning-option-group">
-                <label class="cleaning-label">Format</label>
-                <select id="format-method" class="cleaning-select">
-                    <option value="uppercase">UPPERCASE</option>
-                    <option value="lowercase">lowercase</option>
-                    <option value="titlecase">Title Case</option>
-                    <option value="strip">Remove Extra Spaces</option>
-                </select>
-            </div>
-            <button type="button" class="cleaning-btn" id="apply-format">Apply</button>
+          <div class="cleaning-option-group">
+            <label class="cleaning-label">Select Column</label>
+            <select id="format-column" class="cleaning-select">
+              <!-- filled by JavaScript -->
+            </select>
+          </div>
+          <div class="cleaning-option-group">
+            <label class="cleaning-label">Format</label>
+            <select id="format-method" class="cleaning-select">
+              <option value="uppercase">UPPERCASE</option>
+              <option value="lowercase">lowercase</option>
+              <option value="titlecase">Title Case</option>
+              <option value="strip">Remove Extra Spaces</option>
+            </select>
+          </div>
+          <button type="button" class="cleaning-btn" id="apply-format">
+            Apply
+          </button>
         </div>
-    </div>
+      </div>
 
-    <!-- Filter Invalid Data -->
-    <div class="cleaning-card">
+      <!-- Filter Invalid Data -->
+      <div class="cleaning-card">
         <div class="cleaning-card-header">
-            <h3 class="cleaning-card-title">Filter Invalid Data</h3>
-            <p class="cleaning-card-desc">Remove rows based on a condition</p>
+          <h3 class="cleaning-card-title">Filter Invalid Data</h3>
+          <p class="cleaning-card-desc">Remove rows based on a condition</p>
         </div>
         <div class="cleaning-options">
-            <div class="cleaning-option-group">
-                <label class="cleaning-label">Select Column</label>
-                <select id="filter-column" class="cleaning-select">
-                    <!-- filled by JavaScript -->
-                </select>
-            </div>
-            <div class="cleaning-option-group">
-                <label class="cleaning-label">Condition</label>
-                <select id="filter-condition" class="cleaning-select">
-                    <option value="greater_than">Greater Than</option>
-                    <option value="less_than">Less Than</option>
-                    <option value="equals">Equals</option>
-                    <option value="not_equals">Not Equals</option>
-                    <option value="contains">Contains (text)</option>
-                    <option value="not_contains">Does Not Contain (text)</option>
-                </select>
-            </div>
-            <div class="cleaning-option-group">
-                <label class="cleaning-label">Value</label>
-                <input type="text" id="filter-value" class="cleaning-input" placeholder="Enter value..." />
-            </div>
-            <button type="button" class="cleaning-btn" id="apply-filter">Apply</button>
+          <div class="cleaning-option-group">
+            <label class="cleaning-label">Select Column</label>
+            <select id="filter-column" class="cleaning-select">
+              <!-- filled by JavaScript -->
+            </select>
+          </div>
+          <div class="cleaning-option-group">
+            <label class="cleaning-label">Condition</label>
+            <select id="filter-condition" class="cleaning-select">
+              <option value="greater_than">Greater Than</option>
+              <option value="less_than">Less Than</option>
+              <option value="equals">Equals</option>
+              <option value="not_equals">Not Equals</option>
+              <option value="contains">Contains (text)</option>
+              <option value="not_contains">Does Not Contain (text)</option>
+            </select>
+          </div>
+          <div class="cleaning-option-group">
+            <label class="cleaning-label">Value</label>
+            <input
+              type="text"
+              id="filter-value"
+              class="cleaning-input"
+              placeholder="Enter value..."
+            />
+          </div>
+          <button type="button" class="cleaning-btn" id="apply-filter">
+            Apply
+          </button>
         </div>
-    </div>
+      </div>
 
-    <!-- Cleaning Log -->
-    <div class="cleaning-log" id="cleaning-log" style="display:none;">
+      <!-- Cleaning Log -->
+      <div class="cleaning-log" id="cleaning-log" style="display: none">
         <h3 class="subsection-title">Cleaning Log</h3>
         <ul id="cleaning-log-list" class="log-list"></ul>
+      </div>
     </div>
+    <!-- Close view-clean -->
 
-</div>
-
-<!-- Success Modal -->
-<div id="clean-modal" class="modal-overlay" style="display:none;">
-    <div class="modal-box">
+    <!-- Success Modal -->
+    <div id="clean-modal" class="modal-overlay" style="display: none">
+      <div class="modal-box">
         <div class="modal-icon">✅</div>
         <h3 class="modal-title">Cleaning Applied!</h3>
         <p class="modal-message" id="modal-message"></p>
         <div class="modal-stats" id="modal-stats"></div>
         <div class="modal-actions">
-            <button class="modal-export-csv" id="modal-export-csv">Download CSV</button>
-            <button class="modal-export-excel" id="modal-export-excel">Download Excel</button>
-            <button class="modal-close" id="modal-close">Close</button>
+          <button class="modal-export-csv" id="modal-export-csv">
+            Download CSV
+          </button>
+          <button class="modal-export-excel" id="modal-export-excel">
+            Download Excel
+          </button>
+          <button class="modal-close" id="modal-close">Close</button>
         </div>
+      </div>
     </div>
-</div>
-    <script>
-      window.addEventListener("load", async function () {
-        try {
-          await Clerk.load({
-            ui: { ClerkUI: window.__internal_ClerkUICtor },
-          });
-
-          // Redirect to login if not signed in
-          if (!Clerk.user) {
-            window.location.replace("/");
-            return;
-          }
-
-          // Mount the user button (avatar + dropdown) top right
-          Clerk.mountUserButton(document.getElementById("user-button"), {
-            afterSignOutUrl: "/",
-          });
-        } catch (err) {
-          console.error("Clerk Error:", err);
-        }
-      });
-    </script>
   </body>
 </html>
