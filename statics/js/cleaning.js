@@ -73,24 +73,4 @@ function showModal(message, data) {
     
     document.getElementById('modal-close').onclick = () => modal.style.display = 'none';
     modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
-    document.getElementById('modal-export-csv').onclick = () => exportData('csv', data);
-    document.getElementById('modal-export-excel').onclick = () => exportData('excel', data);
-}
-
-function exportData(format, data) {
-    fetch('/export', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ format, rows: data.rows, columns: data.columns })
-    })
-    .then(res => res.blob())
-    .then(blob => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = format === 'csv' ? 'cleaned_data.csv' : 'cleaned_data.xlsx';
-        a.click();
-        window.URL.revokeObjectURL(url);
-    })
-    .catch(err => console.error('Export error:', err));
 }
