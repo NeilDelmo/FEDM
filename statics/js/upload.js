@@ -1,6 +1,5 @@
 // statics/js/upload.js
 
-// Shared state (if not using shared.js)
 window.hasActiveUpload = false;
 window.currentData = null;
 
@@ -18,6 +17,45 @@ function showSingleFileOnlyMessage() {
     uploadList.prepend(notice);
 }
 
+// ── Global reset — called by remove button AND modal close button ──
+function resetUploadState() {
+    // Clear upload list
+    const uploadList = document.getElementById('upload-list');
+    if (uploadList) uploadList.innerHTML = '';
+
+    // Clear single file notice
+    const singleNotice = document.querySelector('.single-file-notice');
+    if (singleNotice) singleNotice.remove();
+
+    // Reset state
+    window.hasActiveUpload = false;
+    window.currentData = null;
+
+    // Close the modal
+    const modal = document.getElementById('data-modal');
+    if (modal) modal.style.display = 'none';
+    document.body.classList.remove('modal-open');
+
+    // Reset stepper to step 0
+    if (typeof setStep === 'function') setStep(0);
+
+    // Clear modal preview content
+    const modalContent0 = document.getElementById('modal-content-0');
+    if (modalContent0) modalContent0.innerHTML = '';
+
+    // Restore cleaning form HTML
+    const modalContent2 = document.getElementById('modal-content-2');
+    if (modalContent2 && typeof getCleaningFormHTML === 'function') {
+        modalContent2.innerHTML = getCleaningFormHTML();
+    }
+
+    // Clear cleaning log
+    const cleaningLog = document.getElementById('cleaning-log');
+    if (cleaningLog) cleaningLog.style.display = 'none';
+    const cleaningLogList = document.getElementById('cleaning-log-list');
+    if (cleaningLogList) cleaningLogList.innerHTML = '';
+}
+
 dropZone.addEventListener('click', () => { fileInput.click(); fileInput.blur(); });
 
 ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -33,7 +71,7 @@ function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
 });
 
 dropZone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files));
-fileInput.addEventListener('change', function() { handleFiles(this.files); this.value = ''; });
+fileInput.addEventListener('change', function () { handleFiles(this.files); this.value = ''; });
 
 function handleFiles(files) {
     if (!files || files.length === 0) return;
@@ -49,8 +87,7 @@ function handleFiles(files) {
 function uploadFile(file) {
     const item = document.createElement('div');
     item.className = 'upload-item';
-    
-    // File Icon (assuming it's a CSV or Excel)
+
     let iconSrc = file.name.endsWith('.csv') ? '/statics/icons/csv.png' : '/statics/icons/xls.png';
 
     item.innerHTML = `
@@ -71,16 +108,9 @@ function uploadFile(file) {
     const statusText = item.querySelector('.upload-status');
     const removeBtn = item.querySelector('.upload-remove');
 
+    // ── Fixed typo: was "rremoveBtn" ──
     removeBtn.onclick = () => {
-        item.remove();
-        window.hasActiveUpload = false;
-        window.currentData = null;
-        
-        // Hide profile & cleaning views, go back to step 1
-        if (typeof setStep === 'function') setStep(0);
-        
-        const singleNotice = document.querySelector('.single-file-notice');
-        if (singleNotice) singleNotice.remove();
+        resetUploadState();
     };
 
     const xhr = new XMLHttpRequest();
@@ -137,28 +167,23 @@ function uploadFile(file) {
 }
 
 function displayTable(columns, rows, total_rows) {
-    const existing = document.querySelector('.table-wrapper');
-    if (existing) existing.remove();
+    const modal = document.getElementById('data-modal');
+    const modalContent = document.getElementById('modal-content-0');
 
-    const wrapper = document.createElement('div');
-    wrapper.className = 'table-wrapper';
-    
-    // Changed: Append the table to the #view-upload container (or #upload-list inside it)
-    const containerItem = document.getElementById('view-upload') || document.getElementById('upload-list');
-    
+    modalContent.innerHTML = '';
+
     const message = document.createElement('p');
     message.className = 'row-message';
     message.textContent = total_rows > 100
         ? `Showing 100 of ${total_rows} rows`
         : `Showing all ${total_rows} rows`;
-    wrapper.appendChild(message);
+    modalContent.appendChild(message);
 
     const scrollContainer = document.createElement('div');
     scrollContainer.className = 'table-scroll';
     const table = document.createElement('table');
     table.className = 'data-table';
 
-    // THEAD
     const thead = document.createElement('thead');
     const headerRow = document.createElement('tr');
     columns.forEach(col => {
@@ -169,7 +194,6 @@ function displayTable(columns, rows, total_rows) {
     thead.appendChild(headerRow);
     table.appendChild(thead);
 
-    // TBODY
     const tbody = document.createElement('tbody');
     rows.forEach(row => {
         const tr = document.createElement('tr');
@@ -183,8 +207,42 @@ function displayTable(columns, rows, total_rows) {
 
     table.appendChild(tbody);
     scrollContainer.appendChild(table);
-    wrapper.appendChild(scrollContainer);
-    
-    // Append to upload list or view container
-    document.getElementById('upload-list').appendChild(wrapper);
+    modalContent.appendChild(scrollContainer);
+
+    // Force reset all modal content tabs to hidden first
+    document.querySelectorAll('.modal-content').forEach(el => el.classList.remove('active-modal-content'));
+    const content0 = document.getElementById('modal-content-0');
+    if (content0) content0.classList.add('active-modal-content');
+
+    // Force stepper to step 0
+    if (typeof setStep === 'function') setStep(0);
+    if (typeof updateModalStepper === 'function') updateModalStepper(0);
+
+    modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
 }
+
+// Modal close button handler
+document.addEventListener('DOMContentLoaded', function () {
+    const modal = document.getElementById('data-modal');
+    const closeBtn = document.getElementById('modal-close-btn');
+
+    function confirmCloseModal() {
+        const confirmed = confirm('Are you sure you want to close this modal? Any unsaved changes will be lost.');
+        if (confirmed) {
+            resetUploadState();
+        }
+    }
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', confirmCloseModal);
+    }
+
+    if (modal) {
+        modal.addEventListener('click', function (e) {
+            if (e.target === modal) {
+                confirmCloseModal();
+            }
+        });
+    }
+});

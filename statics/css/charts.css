@@ -1,0 +1,127 @@
+/* ── Charts / Step 5 ───────────────────────────────── */
+
+.charts-header {
+    padding: 4px 0 16px;
+}
+
+.charts-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 14px 16px;
+}
+
+.chart-control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1;
+    min-width: 160px;
+}
+
+.chart-control-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.chart-select {
+    padding: 8px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 7px;
+    font-size: 13px;
+    background: #fff;
+    color: #111827;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.chart-select:focus {
+    border-color: #ff6600;
+}
+
+.chart-control-btn-wrap {
+    justify-content: flex-end;
+    flex: 0;
+    min-width: unset;
+}
+
+.generate-charts-btn {
+    padding: 9px 22px;
+    background: #ff6600;
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    white-space: nowrap;
+}
+
+.generate-charts-btn:hover {
+    background: #e55a00;
+    transform: translateY(-1px);
+}
+
+.generate-charts-btn:active {
+    transform: translateY(0);
+}
+
+/* Charts Grid */
+.charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.chart-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.chart-card-full {
+    grid-column: 1 / -1;
+}
+
+.chart-card-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #374151;
+    margin-bottom: 12px;
+}
+
+.chart-canvas-wrap {
+    position: relative;
+    height: 220px;
+}
+
+.chart-canvas-pie {
+    height: 260px;
+}
+
+/* Empty State */
+.charts-empty {
+    text-align: center;
+    padding: 60px 24px;
+}
+
+.charts-empty-icon {
+    font-size: 48px;
+    margin-bottom: 14px;
+    opacity: 0.4;
+}
+
+.charts-empty-text {
+    color: #6b7280;
+    font-size: 14px;
+    line-height: 1.6;
+}

@@ -1,15 +1,13 @@
 // statics/js/data_profiling.js (Profile logic)
 
 function displayProfile(data) {
-    // Advance step if navigation is ready
-    if (typeof setStep === 'function') setStep(1);
+    // Update modal profile cards
+    document.getElementById('modal-total-rows').textContent = data.total_rows;
+    document.getElementById('modal-total-columns').textContent = data.total_columns;
+    document.getElementById('modal-total-missing').textContent = data.total_missing;
+    document.getElementById('modal-total-duplicates').textContent = data.total_duplicates;
 
-    document.getElementById('total-rows').textContent = data.total_rows;
-    document.getElementById('total-columns').textContent = data.total_columns;
-    document.getElementById('total-missing').textContent = data.total_missing;
-    document.getElementById('total-duplicates').textContent = data.total_duplicates;
-
-    const profileBody = document.getElementById('profile-table-body');
+    const profileBody = document.getElementById('modal-profile-table-body');
     profileBody.innerHTML = '';
     data.column_details.forEach(col => {
         const tr = document.createElement('tr');
@@ -27,12 +25,48 @@ function displayProfile(data) {
         profileBody.appendChild(tr);
     });
 
+    // Also update page profile section (for non-modal view)
+    document.getElementById('total-rows').textContent = data.total_rows;
+    document.getElementById('total-columns').textContent = data.total_columns;
+    document.getElementById('total-missing').textContent = data.total_missing;
+    document.getElementById('total-duplicates').textContent = data.total_duplicates;
+
+    const pageProfileBody = document.getElementById('profile-table-body');
+    if (pageProfileBody) {
+        pageProfileBody.innerHTML = '';
+        data.column_details.forEach(col => {
+            const tr = document.createElement('tr');
+            let missingClass = 'missing-none';
+            if (col.missing_percent > 30) missingClass = 'missing-high';
+            else if (col.missing_percent > 0) missingClass = 'missing-low';
+
+            tr.innerHTML = `
+                <td>${col.name}</td>
+                <td>${col.dtype}</td>
+                <td class="${missingClass}">${col.missing}</td>
+                <td class="${missingClass}">${col.missing_percent}%</td>
+                <td>${col.unique}</td>
+            `;
+            pageProfileBody.appendChild(tr);
+        });
+    }
+
     const statsBody = document.getElementById('stats-table-body');
-    statsBody.innerHTML = '';
+    const modalStatsBody = document.getElementById('modal-stats-table-body');
+    if (statsBody) {
+        statsBody.innerHTML = '';
+    }
+    if (modalStatsBody) {
+        modalStatsBody.innerHTML = '';
+    }
+
     if (data.stats.length === 0) {
-        statsBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#6b7280;">No numeric columns found</td></tr>`;
+        const noDataRow = `<tr><td colspan="6" style="text-align:center; color:#6b7280;">No numeric columns found</td></tr>`;
+        if (statsBody) statsBody.innerHTML = noDataRow;
+        if (modalStatsBody) modalStatsBody.innerHTML = noDataRow;
         return;
     }
+
     data.stats.forEach(stat => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -43,19 +77,27 @@ function displayProfile(data) {
             <td>${stat.median ?? '—'}</td>
             <td>${stat.std ?? '—'}</td>
         `;
-        statsBody.appendChild(tr);
+        if (statsBody) statsBody.appendChild(tr.cloneNode(true));
+        if (modalStatsBody) modalStatsBody.appendChild(tr);
     });
 }
 
 function displayCleaning(data) {
-    const dropdowns = ['missing-column', 'dtype-column', 'format-column', 'filter-column'];
-    dropdowns.forEach(id => {
+    const dropdownMap = {
+        'missing-column': { addAll: true },
+        'modal-missing-column': { addAll: true },
+        'dtype-column': {},
+        'modal-dtype-column': {},
+        'format-column': {},
+        'modal-format-column': {},
+        'filter-column': {},
+        'modal-filter-column': {}
+    };
+
+    Object.entries(dropdownMap).forEach(([id, config]) => {
         const select = document.getElementById(id);
-        if (id === 'missing-column') {
-            select.innerHTML = '<option value="all">All Columns</option>';
-        } else {
-            select.innerHTML = '';
-        }
+        if (!select) return;
+        select.innerHTML = config.addAll ? '<option value="all">All Columns</option>' : '';
         data.columns.forEach(col => {
             const option = document.createElement('option');
             option.value = col;
@@ -64,16 +106,36 @@ function displayCleaning(data) {
         });
     });
 
-    // Custom value toggle
-    document.getElementById('missing-method').addEventListener('change', function() {
-        const customGroup = document.getElementById('custom-value-group');
-        customGroup.style.display = this.value === 'custom' ? 'block' : 'none';
-    });
+    function attachMissingMethodHandler(selectId, customGroupId) {
+        const missingMethod = document.getElementById(selectId);
+        const customGroup = document.getElementById(customGroupId);
+        if (!missingMethod || !customGroup) return;
+        missingMethod.onchange = function() {
+            customGroup.style.display = this.value === 'custom' ? 'block' : 'none';
+        };
+        missingMethod.dispatchEvent(new Event('change'));
+    }
 
-    // Attach apply button handlers
-    document.getElementById('apply-missing').onclick = (e) => { e.preventDefault(); applyClean('missing'); };
-    document.getElementById('apply-duplicates').onclick = (e) => { e.preventDefault(); applyClean('duplicates'); };
-    document.getElementById('apply-dtype').onclick = (e) => { e.preventDefault(); applyClean('dtype'); };
-    document.getElementById('apply-format').onclick = (e) => { e.preventDefault(); applyClean('format'); };
-    document.getElementById('apply-filter').onclick = (e) => { e.preventDefault(); applyClean('filter'); };
+    attachMissingMethodHandler('missing-method', 'custom-value-group');
+    attachMissingMethodHandler('modal-missing-method', 'modal-custom-value-group');
+
+    const applyButtons = {
+        'apply-missing': 'missing',
+        'modal-apply-missing': 'missing',
+        'apply-duplicates': 'duplicates',
+        'modal-apply-duplicates': 'duplicates',
+        'apply-dtype': 'dtype',
+        'modal-apply-dtype': 'dtype',
+        'apply-format': 'format',
+        'modal-apply-format': 'format',
+        'apply-filter': 'filter',
+        'modal-apply-filter': 'filter'
+    };
+    
+    Object.entries(applyButtons).forEach(([buttonId, cleanType]) => {
+        const btn = document.getElementById(buttonId);
+        if (btn) {
+            btn.onclick = (e) => { e.preventDefault(); applyClean(cleanType); };
+        }
+    });
 }

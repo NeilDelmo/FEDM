@@ -236,6 +236,116 @@ def export():
             as_attachment=True,
             download_name='cleaned_data.xlsx'
         )
+@app.route('/analyze', methods=['POST'])
+def analyze():
+    data = request.get_json()
+    df = pd.DataFrame(data['rows'])
+
+    total_rows = len(df)
+    total_columns = len(df.columns)
+    total_missing = int(df.isnull().sum().sum())
+    total_cells = total_rows * total_columns
+    completeness = round(((total_cells - total_missing) / total_cells) * 100, 1) if total_cells > 0 else 100
+
+    numeric_cols = df.select_dtypes(include='number').columns.tolist()
+    text_cols = df.select_dtypes(include='object').columns.tolist()
+
+    # ── Numeric Statistics ────────────────────────────────
+    numeric_stats = []
+    for col in numeric_cols:
+        mode_val = df[col].mode()
+        numeric_stats.append({
+            'column': col,
+            'min': round(float(df[col].min()), 2) if pd.notnull(df[col].min()) else None,
+            'max': round(float(df[col].max()), 2) if pd.notnull(df[col].max()) else None,
+            'mean': round(float(df[col].mean()), 2) if pd.notnull(df[col].mean()) else None,
+            'median': round(float(df[col].median()), 2) if pd.notnull(df[col].median()) else None,
+            'std': round(float(df[col].std()), 2) if pd.notnull(df[col].std()) else None,
+            'mode': round(float(mode_val[0]), 2) if len(mode_val) > 0 and pd.notnull(mode_val[0]) else None,
+        })
+
+    # ── Most Frequent Values (text + numeric) ─────────────
+    frequent_values = []
+    for col in df.columns:
+        counts = df[col].dropna().value_counts().head(3)
+        if len(counts) == 0:
+            continue
+        total_non_null = df[col].dropna().count()
+        values = []
+        for val, count in counts.items():
+            pct = round((count / total_non_null) * 100, 1) if total_non_null > 0 else 0
+            values.append({'value': str(val), 'count': int(count), 'percent': pct})
+        frequent_values.append({'column': col, 'values': values})
+
+    # ── Interpretations ───────────────────────────────────
+    interpretations = []
+
+    if total_missing == 0:
+        interpretations.append('✅ The dataset has no missing values — it is complete and ready for analysis.')
+    else:
+        missing_pct = round((total_missing / total_cells) * 100, 1)
+        interpretations.append(f'⚠️ The dataset has {total_missing} missing values ({missing_pct}% of all cells).')
+
+    for col in df.columns:
+        missing_count = int(df[col].isnull().sum())
+        missing_pct = round((missing_count / total_rows) * 100, 1) if total_rows > 0 else 0
+        if missing_pct > 30:
+            interpretations.append(f'⚠️ Column "{col}" has a high missing rate of {missing_pct}% — consider dropping or imputing.')
+
+    for col in text_cols:
+        top = df[col].dropna().value_counts()
+        if len(top) > 0:
+            top_val = top.index[0]
+            top_pct = round((top.iloc[0] / total_rows) * 100, 1)
+            if top_pct > 50:
+                interpretations.append(f'ℹ️ In column "{col}", the value "{top_val}" dominates at {top_pct}% of rows.')
+
+    for col in numeric_cols:
+        if df[col].std() == 0:
+            interpretations.append(f'ℹ️ Column "{col}" has no variation — all values are the same.')
+        elif df[col].std() > df[col].mean() * 2 and df[col].mean() != 0:
+            interpretations.append(f'⚠️ Column "{col}" has high variability — there may be outliers.')
+
+    if total_rows < 50:
+        interpretations.append(f'ℹ️ The dataset is small ({total_rows} rows) — results may not be statistically significant.')
+
+    # ── Trends & Patterns ────────────────────────────────
+    trends = []
+
+    if completeness == 100:
+        trends.append({'type': 'good', 'message': 'Dataset is 100% complete with no missing values.'})
+    elif completeness >= 90:
+        trends.append({'type': 'info', 'message': f'Dataset is {completeness}% complete — mostly clean.'})
+    else:
+        trends.append({'type': 'warning', 'message': f'Dataset is only {completeness}% complete — significant missing data detected.'})
+
+    if len(numeric_cols) > 0:
+        most_variable = max(numeric_cols, key=lambda c: df[c].std() if pd.notnull(df[c].std()) else 0)
+        trends.append({'type': 'info', 'message': f'Column "{most_variable}" has the highest variability among numeric columns.'})
+
+    if len(text_cols) > 0:
+        most_unique = max(text_cols, key=lambda c: df[c].nunique())
+        unique_count = df[most_unique].nunique()
+        trends.append({'type': 'info', 'message': f'Column "{most_unique}" has the most unique values ({unique_count}) among text columns.'})
+
+    dup_count = int(df.duplicated().sum())
+    if dup_count > 0:
+        trends.append({'type': 'warning', 'message': f'{dup_count} duplicate rows still detected in the dataset.'})
+    else:
+        trends.append({'type': 'good', 'message': 'No duplicate rows detected.'})
+
+    return jsonify({
+        'total_rows': total_rows,
+        'total_columns': total_columns,
+        'total_missing': total_missing,
+        'completeness': completeness,
+        'numeric_columns': len(numeric_cols),
+        'text_columns': len(text_cols),
+        'numeric_stats': numeric_stats,
+        'frequent_values': frequent_values,
+        'interpretations': interpretations,
+        'trends': trends
+    })
 
 if __name__ == '__main__':
 	app.run(debug=True)
