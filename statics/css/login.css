@@ -1,36 +1,435 @@
+:root {
+    --green-darkest: #14532d;
+    --green-dark: #166534;
+    --green-primary: #16a34a;
+    --green-medium: #15803d;
+    --green-light: #dcfce7;
+    --green-tint: #f0fdf4;
+    --green-border: #bbf7d0;
+    --ink: #111827;
+    --muted: #5b6678;
+    --line: #e5e7eb;
+    --panel: #ffffff;
+    --soft: #f8fafc;
+    --font-sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
 
-.container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    flex-direction: column;
-    gap: 20px;
+* {
+    box-sizing: border-box;
+}
+
+html {
+    min-height: 100%;
 }
 
 body {
+    min-height: 100vh;
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    color: var(--ink);
+    background:
+        linear-gradient(135deg, rgba(240, 253, 244, 0.92), rgba(255, 255, 255, 0.84) 48%, rgba(240, 249, 255, 0.9)),
+        #f8fafc;
+    font-family: var(--font-sans);
 }
 
-.title {
+body::before {
     position: fixed;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    margin: 0;
-    font-size: 2rem;
-    z-index: 20;
+    inset: 0;
+    z-index: -1;
+    content: "";
+    background-image:
+        linear-gradient(rgba(20, 83, 45, 0.055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(20, 83, 45, 0.055) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: linear-gradient(to bottom, #000, transparent 78%);
 }
 
-.box {
-    min-height: 400px; /* Give it a minimum starting height */
-    width: 400px;
-    padding: 20px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-    display: flex;         /* This helps center Clerk inside the box */
-    justify-content: center;
+.login-shell {
+    width: min(1180px, calc(100% - 40px));
+    min-height: 100vh;
+    margin: 0 auto;
+    padding: 34px 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(390px, 0.95fr);
+    gap: 34px;
+    align-items: stretch;
+}
+
+.brand-panel,
+.auth-panel {
+    min-height: calc(100vh - 68px);
+}
+
+.brand-panel {
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(187, 247, 208, 0.95);
+    border-radius: 8px;
+    background:
+        linear-gradient(150deg, rgba(20, 83, 45, 0.98), rgba(22, 101, 52, 0.92)),
+        var(--green-dark);
+    box-shadow: 0 24px 70px rgba(20, 83, 45, 0.18);
+}
+
+.brand-panel::before,
+.brand-panel::after {
+    position: absolute;
+    content: "";
+    pointer-events: none;
+}
+
+.brand-panel::before {
+    width: 420px;
+    height: 420px;
+    right: -190px;
+    top: -170px;
+    border: 1px solid rgba(220, 252, 231, 0.28);
+    transform: rotate(18deg);
+}
+
+.brand-panel::after {
+    inset: auto 26px 26px auto;
+    width: 240px;
+    height: 130px;
+    border-right: 1px solid rgba(220, 252, 231, 0.24);
+    border-bottom: 1px solid rgba(220, 252, 231, 0.24);
+}
+
+.login-nav {
+    display: flex;
     align-items: center;
+    gap: 11px;
+    position: relative;
+    z-index: 1;
+}
+
+.brand-mark {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    background: #ffffff;
+    color: var(--green-dark);
+    font-weight: 800;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+}
+
+.brand-name {
+    color: #f8fafc;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.hero-copy {
+    max-width: 610px;
+    padding: 76px 0 42px;
+    position: relative;
+    z-index: 1;
+}
+
+.eyebrow {
+    margin: 0 0 11px;
+    color: var(--green-primary);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.brand-panel .eyebrow {
+    color: var(--green-light);
+}
+
+.hero-copy h1 {
+    max-width: 620px;
+    margin: 0;
+    color: #ffffff;
+    font-size: clamp(2.35rem, 6vw, 4.9rem);
+    line-height: 0.98;
+    letter-spacing: 0;
+}
+
+.hero-text {
+    max-width: 540px;
+    margin: 22px 0 0;
+    color: rgba(240, 253, 244, 0.86);
+    font-size: 1.03rem;
+    line-height: 1.75;
+}
+
+.workflow-card {
+    width: min(100%, 650px);
+    padding: 20px;
+    position: relative;
+    z-index: 1;
+    border: 1px solid rgba(220, 252, 231, 0.26);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(16px);
+}
+
+.workflow-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    color: rgba(240, 253, 244, 0.72);
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+
+.workflow-header strong {
+    color: #ffffff;
+}
+
+.workflow-track {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.workflow-step {
+    min-height: 76px;
+    padding: 12px 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    border: 1px solid rgba(220, 252, 231, 0.2);
+    border-radius: 8px;
+    color: rgba(240, 253, 244, 0.8);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.workflow-step.active {
+    background: rgba(255, 255, 255, 0.13);
+    color: #ffffff;
+}
+
+.step-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(220, 252, 231, 0.45);
+}
+
+.workflow-step.active .step-dot {
+    background: #ffffff;
+    box-shadow: 0 0 0 5px rgba(220, 252, 231, 0.14);
+}
+
+.metric-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 22px;
+    position: relative;
+    z-index: 1;
+}
+
+.metric {
+    padding: 16px;
+    border: 1px solid rgba(220, 252, 231, 0.18);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.metric strong,
+.metric span {
+    display: block;
+}
+
+.metric strong {
+    color: #ffffff;
+    font-size: 22px;
+}
+
+.metric span {
+    margin-top: 4px;
+    color: rgba(240, 253, 244, 0.72);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.auth-panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.auth-card {
+    width: min(100%, 460px);
+    padding: 28px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.11);
+}
+
+.auth-heading {
+    margin-bottom: 22px;
+}
+
+.auth-heading h2 {
+    margin: 0;
+    color: var(--ink);
+    font-size: 2rem;
+    line-height: 1.15;
+    letter-spacing: 0;
+}
+
+.auth-heading p:last-child {
+    margin: 10px 0 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.clerk-frame {
+    min-height: 360px;
+    display: flex;
+    justify-content: center;
+}
+
+.sign-in-host {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.loading-state,
+.error-state {
+    width: 100%;
+    min-height: 280px;
+    display: grid;
+    place-items: center;
+    border: 1px dashed var(--green-border);
+    border-radius: 8px;
+    background: var(--green-tint);
+    color: var(--green-dark);
+    font-size: 14px;
+    font-weight: 700;
+    text-align: center;
+    padding: 24px;
+}
+
+.error-state {
+    border-color: #fecaca;
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+#sign-in .cl-rootBox,
+#sign-in .cl-cardBox {
+    width: 100%;
+}
+
+#sign-in .cl-card,
+#sign-in .clerk-card {
+    width: 100%;
+    border: 0;
+    box-shadow: none;
+}
+
+#sign-in .cl-headerTitle,
+#sign-in .clerk-title {
+    color: var(--ink);
+}
+
+#sign-in .cl-formButtonPrimary,
+#sign-in .clerk-primary-button {
+    min-height: 42px;
+    border-radius: 7px;
+    background: var(--green-primary);
+    box-shadow: none;
+    font-weight: 700;
+}
+
+#sign-in .cl-formButtonPrimary:hover,
+#sign-in .clerk-primary-button:hover {
+    background: var(--green-medium);
+}
+
+#sign-in .cl-formFieldInput,
+#sign-in .clerk-input {
+    min-height: 42px;
+    border-radius: 7px;
+}
+
+#sign-in .cl-socialButtonsBlockButton,
+#sign-in .clerk-social-button {
+    min-height: 42px;
+    border-radius: 7px;
+}
+
+#sign-in .cl-footerActionLink,
+#sign-in .clerk-link {
+    color: var(--green-dark);
+    font-weight: 700;
+}
+
+@media (max-width: 940px) {
+    .login-shell {
+        grid-template-columns: 1fr;
+        gap: 18px;
+        padding: 20px 0;
+    }
+
+    .brand-panel,
+    .auth-panel {
+        min-height: auto;
+    }
+
+    .brand-panel {
+        padding: 24px;
+    }
+
+    .hero-copy {
+        padding: 48px 0 28px;
+    }
+
+    .auth-card {
+        width: 100%;
+    }
+}
+
+@media (max-width: 620px) {
+    .login-shell {
+        width: min(100% - 24px, 1180px);
+    }
+
+    .brand-panel,
+    .auth-card {
+        padding: 20px;
+    }
+
+    .brand-name {
+        font-size: 13px;
+    }
+
+    .hero-copy h1 {
+        font-size: 2.35rem;
+    }
+
+    .workflow-track,
+    .metric-row {
+        grid-template-columns: 1fr;
+    }
+
+    .workflow-step {
+        min-height: 54px;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 10px;
+    }
+
+    .auth-heading h2 {
+        font-size: 1.65rem;
+    }
 }
