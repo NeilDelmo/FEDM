@@ -119,6 +119,23 @@ function displayCleaning(data) {
     attachMissingMethodHandler('missing-method', 'custom-value-group');
     attachMissingMethodHandler('modal-missing-method', 'modal-custom-value-group');
 
+    function attachFilterConditionHandler(selectId, valueInputId) {
+        const filterCondition = document.getElementById(selectId);
+        const valueInput = document.getElementById(valueInputId);
+        const valueGroup = valueInput ? valueInput.closest('.cleaning-option-group') : null;
+        if (!filterCondition || !valueInput || !valueGroup) return;
+        filterCondition.onchange = function() {
+            const needsValue = !['is_empty', 'not_empty'].includes(this.value);
+            valueGroup.style.display = needsValue ? 'flex' : 'none';
+            valueInput.required = needsValue;
+            if (!needsValue) valueInput.value = '';
+        };
+        filterCondition.dispatchEvent(new Event('change'));
+    }
+
+    attachFilterConditionHandler('filter-condition', 'filter-value');
+    attachFilterConditionHandler('modal-filter-condition', 'modal-filter-value');
+
     const applyButtons = {
         'apply-missing': 'missing',
         'modal-apply-missing': 'missing',

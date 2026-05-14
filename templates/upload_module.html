@@ -154,8 +154,14 @@
 
       <!-- Modal Header -->
       <div class="modal-header">
-        <h2 class="modal-title" id="modal-title">Preview Data</h2>
-        <button class="modal-close-btn" id="modal-close-btn" aria-label="Close modal">&times;</button>
+        <div class="modal-title-group">
+          <h2 class="modal-title" id="modal-title">Preview Data</h2>
+          <div class="modal-dataset-info" id="modal-dataset-info">No dataset loaded</div>
+        </div>
+        <div class="modal-header-actions">
+          <button type="button" class="modal-secondary-btn" id="modal-new-upload-btn">Upload new file</button>
+          <button class="modal-close-btn" id="modal-close-btn" aria-label="Close workspace">&times;</button>
+        </div>
       </div>
 
       <!-- Modal Body -->
@@ -345,6 +351,8 @@
                   <option value="not_equals">Not Equals</option>
                   <option value="contains">Contains (text)</option>
                   <option value="not_contains">Does Not Contain (text)</option>
+                  <option value="is_empty">Is Empty / Missing</option>
+                  <option value="not_empty">Is Not Empty</option>
                 </select>
               </div>
               <div class="cleaning-option-group">
@@ -549,6 +557,8 @@
             <option value="not_equals">Not Equals</option>
             <option value="contains">Contains (text)</option>
             <option value="not_contains">Does Not Contain (text)</option>
+            <option value="is_empty">Is Empty / Missing</option>
+            <option value="not_empty">Is Not Empty</option>
           </select>
         </div>
         <div class="cleaning-option-group">

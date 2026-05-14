@@ -1,52 +1,141 @@
 // statics/js/cleaning.js
 
+window.cleaningHistory = window.cleaningHistory || [];
+
+const cleaningMethodNotes = {
+    missing: {
+        drop: 'Drops records with empty values in the selected column. Best when incomplete rows cannot be trusted.',
+        mean: 'Fills numeric blanks with the column average. Best for roughly balanced numeric data.',
+        median: 'Fills numeric blanks with the middle value. Best when numeric data has outliers.',
+        mode: 'Fills blanks with the most frequent value. Best for categories or repeated values.',
+        custom: 'Fills blanks with a value you choose. Best when there is a known placeholder or default.'
+    },
+    duplicates: {
+        first: 'Keeps the first repeated record and removes later copies.',
+        last: 'Keeps the last repeated record and removes earlier copies.',
+        false: 'Removes every repeated record, including the first occurrence.'
+    },
+    dtype: {
+        string: 'Converts the selected column to text.',
+        integer: 'Converts the selected column to whole numbers; invalid values become blank.',
+        float: 'Converts the selected column to decimal numbers; invalid values become blank.',
+        datetime: 'Converts the selected column to dates; invalid values become blank.',
+        boolean: 'Converts common true/false values such as yes/no and 1/0.'
+    },
+    format: {
+        uppercase: 'Standardizes text to uppercase.',
+        lowercase: 'Standardizes text to lowercase.',
+        titlecase: 'Standardizes text to title case.',
+        strip: 'Removes extra spaces at the beginning and end of text.'
+    },
+    filter: {
+        greater_than: 'Keeps numeric rows greater than the entered value.',
+        less_than: 'Keeps numeric rows less than the entered value.',
+        equals: 'Keeps rows that exactly match the entered value.',
+        not_equals: 'Removes rows that exactly match the entered value.',
+        contains: 'Keeps rows containing the entered text.',
+        not_contains: 'Removes rows containing the entered text.',
+        is_empty: 'Keeps rows where the selected column is blank or missing.',
+        not_empty: 'Keeps rows where the selected column has a usable value.'
+    }
+};
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+}
+
+function getFirstElement(ids) {
+    for (const id of ids) {
+        const el = document.getElementById(id);
+        if (el) return el;
+    }
+    return null;
+}
+
+function getCleaningDetails(action) {
+    const details = {
+        action,
+        label: 'Cleaning action',
+        target: '',
+        method: '',
+        note: ''
+    };
+
+    if (action === 'missing') {
+        const columnEl = getFirstElement(['missing-column', 'modal-missing-column']);
+        const methodEl = getFirstElement(['missing-method', 'modal-missing-method']);
+        details.label = 'Handle Missing Values';
+        details.target = columnEl ? columnEl.value : 'all';
+        details.method = methodEl ? methodEl.value : 'drop';
+        details.note = cleaningMethodNotes.missing[details.method] || '';
+    } else if (action === 'duplicates') {
+        const keepEl = getFirstElement(['duplicate-keep', 'modal-duplicate-keep']);
+        details.label = 'Remove Duplicates';
+        details.target = 'All columns';
+        details.method = keepEl ? keepEl.value : 'first';
+        details.note = cleaningMethodNotes.duplicates[details.method] || '';
+    } else if (action === 'dtype') {
+        const columnEl = getFirstElement(['dtype-column', 'modal-dtype-column']);
+        const targetEl = getFirstElement(['dtype-target', 'modal-dtype-target']);
+        details.label = 'Convert Data Type';
+        details.target = columnEl ? columnEl.value : '';
+        details.method = targetEl ? targetEl.value : 'string';
+        details.note = cleaningMethodNotes.dtype[details.method] || '';
+    } else if (action === 'format') {
+        const columnEl = getFirstElement(['format-column', 'modal-format-column']);
+        const methodEl = getFirstElement(['format-method', 'modal-format-method']);
+        details.label = 'Standardize Format';
+        details.target = columnEl ? columnEl.value : '';
+        details.method = methodEl ? methodEl.value : 'uppercase';
+        details.note = cleaningMethodNotes.format[details.method] || '';
+    } else if (action === 'filter') {
+        const columnEl = getFirstElement(['filter-column', 'modal-filter-column']);
+        const conditionEl = getFirstElement(['filter-condition', 'modal-filter-condition']);
+        const valueEl = getFirstElement(['filter-value', 'modal-filter-value']);
+        details.label = 'Filter Invalid Data';
+        details.target = columnEl ? columnEl.value : '';
+        details.method = conditionEl ? conditionEl.value : 'equals';
+        details.value = valueEl ? valueEl.value : '';
+        details.note = cleaningMethodNotes.filter[details.method] || '';
+    }
+
+    return details;
+}
+
 function applyClean(action) {
     if (!window.currentData) return;
 
-    function getFirstElement(ids) {
-        for (const id of ids) {
-            const el = document.getElementById(id);
-            if (el) return el;
-        }
-        return null;
-    }
-
-    // ── Save original data BEFORE cleaning ──
     const originalData = {
         columns: [...window.currentData.columns],
         rows: window.currentData.rows.map(r => ({ ...r })),
         total_rows: window.currentData.total_rows
     };
 
-    let payload = { action: action, rows: window.currentData.rows };
+    const details = getCleaningDetails(action);
+    const payload = { action: action, rows: window.currentData.rows };
 
     if (action === 'missing') {
-        const columnEl = getFirstElement(['missing-column', 'modal-missing-column']);
-        const methodEl = getFirstElement(['missing-method', 'modal-missing-method']);
         const customEl = getFirstElement(['custom-value', 'modal-custom-value']);
-        payload.column = columnEl ? columnEl.value : 'all';
-        payload.method = methodEl ? methodEl.value : 'drop';
+        payload.column = details.target;
+        payload.method = details.method;
         payload.custom_value = customEl ? customEl.value : '';
     } else if (action === 'duplicates') {
-        const keepEl = getFirstElement(['duplicate-keep', 'modal-duplicate-keep']);
-        payload.keep = keepEl ? keepEl.value : 'first';
+        payload.keep = details.method;
     } else if (action === 'dtype') {
-        const columnEl = getFirstElement(['dtype-column', 'modal-dtype-column']);
-        const targetEl = getFirstElement(['dtype-target', 'modal-dtype-target']);
-        payload.column = columnEl ? columnEl.value : null;
-        payload.target = targetEl ? targetEl.value : 'string';
+        payload.column = details.target;
+        payload.target = details.method;
     } else if (action === 'format') {
-        const columnEl = getFirstElement(['format-column', 'modal-format-column']);
-        const methodEl = getFirstElement(['format-method', 'modal-format-method']);
-        payload.column = columnEl ? columnEl.value : null;
-        payload.method = methodEl ? methodEl.value : 'uppercase';
+        payload.column = details.target;
+        payload.method = details.method;
     } else if (action === 'filter') {
-        const columnEl = getFirstElement(['filter-column', 'modal-filter-column']);
-        const conditionEl = getFirstElement(['filter-condition', 'modal-filter-condition']);
-        const valueEl = getFirstElement(['filter-value', 'modal-filter-value']);
-        payload.column = columnEl ? columnEl.value : null;
-        payload.condition = conditionEl ? conditionEl.value : 'equals';
-        payload.value = valueEl ? valueEl.value : '';
+        payload.column = details.target;
+        payload.condition = details.method;
+        payload.value = details.value || '';
     }
 
     fetch('/clean', {
@@ -60,41 +149,47 @@ function applyClean(action) {
                 alert('Error: ' + cleanedData.error);
                 return;
             }
-            // Show comparison view — don't update currentData yet
-            showComparisonView(originalData, cleanedData, cleanedData.message);
+            showComparisonView(originalData, cleanedData, cleanedData.message, details);
         })
-        .catch(err => console.error('Clean error:', err));
+        .catch(err => {
+            console.error('Clean error:', err);
+            alert('Cleaning failed. Please check the selected method and value.');
+        });
 }
 
-function showComparisonView(originalData, cleanedData, message) {
+function showComparisonView(originalData, cleanedData, message, details) {
     const modal = document.getElementById('data-modal');
     const compContainer = document.getElementById('modal-content-2');
-
-    // Build summary badge counts
     const removedRows = originalData.total_rows - cleanedData.total_rows;
     const changedCells = countChangedCells(originalData, cleanedData);
 
     compContainer.innerHTML = `
         <div class="comparison-header">
+            <div class="cleaning-decision">
+                <div>
+                    <span class="decision-label">${escapeHtml(details.label)}</span>
+                    <h3>${escapeHtml(details.target || 'Dataset')} - ${escapeHtml(details.method)}</h3>
+                    <p>${escapeHtml(details.note)}</p>
+                </div>
+            </div>
             <div class="comparison-summary">
-                <span class="summary-badge summary-message">📋 ${message}</span>
-                ${removedRows > 0 ? `<span class="summary-badge badge-red">🗑️ ${removedRows} rows removed</span>` : ''}
-                ${changedCells > 0 ? `<span class="summary-badge badge-yellow">✏️ ${changedCells} cells modified</span>` : ''}
+                <span class="summary-badge summary-message">${escapeHtml(message)}</span>
+                ${removedRows > 0 ? `<span class="summary-badge badge-red">${removedRows} rows removed</span>` : ''}
+                ${changedCells > 0 ? `<span class="summary-badge badge-yellow">${changedCells} cells modified</span>` : ''}
+                ${removedRows === 0 && changedCells === 0 ? '<span class="summary-badge badge-green">No visible preview changes</span>' : ''}
             </div>
         </div>
 
         <div class="comparison-panels">
-            <!-- Original -->
             <div class="comparison-panel">
-                <div class="panel-label panel-label-original">📄 Original Data <span class="panel-count">${originalData.total_rows} rows</span></div>
+                <div class="panel-label panel-label-original">Original Data <span class="panel-count">${originalData.total_rows} rows</span></div>
                 <div class="table-scroll comparison-table-scroll">
                     ${buildComparisonTable(originalData, cleanedData, 'original')}
                 </div>
             </div>
 
-            <!-- Cleaned -->
             <div class="comparison-panel">
-                <div class="panel-label panel-label-cleaned">✅ Cleaned Data <span class="panel-count">${cleanedData.total_rows} rows</span></div>
+                <div class="panel-label panel-label-cleaned">Cleaned Data <span class="panel-count">${cleanedData.total_rows} rows</span></div>
                 <div class="table-scroll comparison-table-scroll">
                     ${buildComparisonTable(cleanedData, originalData, 'cleaned')}
                 </div>
@@ -102,41 +197,57 @@ function showComparisonView(originalData, cleanedData, message) {
         </div>
 
         <div class="comparison-actions">
-            <button class="comparison-btn btn-undo" id="comp-undo-btn">↩️ Undo</button>
-            <button class="comparison-btn btn-confirm" id="comp-confirm-btn">✅ Confirm & Apply</button>
+            <button class="comparison-btn btn-undo" id="comp-undo-btn">Undo</button>
+            <button class="comparison-btn btn-confirm" id="comp-confirm-btn">Confirm & Apply</button>
         </div>
     `;
 
-    // Switch to step 3 (Clean tab) to show comparison
     if (typeof setStep === 'function') setStep(2);
     modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
 
     document.getElementById('comp-undo-btn').onclick = () => {
-        // Restore the cleaning form HTML back into modal-content-2
-        const compContainer = document.getElementById('modal-content-2');
-        compContainer.innerHTML = getCleaningFormHTML();
-        // Re-attach all dropdowns and button handlers
-        if (typeof displayCleaning === 'function') displayCleaning(window.currentData);
-        if (typeof setStep === 'function') setStep(2);
+        restoreCleaningTools(window.currentData);
     };
 
     document.getElementById('comp-confirm-btn').onclick = () => {
         window.currentData = cleanedData;
-        if (typeof displayTable === 'function') displayTable(cleanedData.columns, cleanedData.rows, cleanedData.total_rows);
-        if (typeof displayCleaning === 'function') displayCleaning(cleanedData);
-        addToLog(message);
-        if (typeof setStep === 'function') setStep(0);
+        addToLog(message, details);
+
+        if (typeof displayTable === 'function') {
+            displayTable(cleanedData.columns, cleanedData.rows, cleanedData.total_rows);
+        }
+        if (typeof displayProfile === 'function') {
+            displayProfile(cleanedData);
+        }
+        if (typeof updateModalDatasetInfo === 'function') {
+            updateModalDatasetInfo(cleanedData);
+        }
+
+        restoreCleaningTools(cleanedData);
     };
+}
+
+function restoreCleaningTools(data) {
+    const compContainer = document.getElementById('modal-content-2');
+    compContainer.innerHTML = getCleaningFormHTML();
+    renderCleaningLog();
+    if (typeof displayCleaning === 'function') displayCleaning(data);
+    if (typeof setStep === 'function') setStep(2);
 }
 
 function getCleaningFormHTML() {
     return `
     <h3 class="subsection-title">Data Cleaning</h3>
 
+    <div class="cleaning-guide">
+        <span>Review a method, apply it, compare original vs cleaned data, then confirm the change.</span>
+    </div>
+
     <div class="cleaning-card">
         <div class="cleaning-card-header">
             <h3 class="cleaning-card-title">Handle Missing Values</h3>
-            <p class="cleaning-card-desc">Choose how to handle empty/null values in your dataset</p>
+            <p class="cleaning-card-desc">Drop incomplete rows or fill blanks using mean, median, mode, or a custom value.</p>
         </div>
         <div class="cleaning-options">
             <div class="cleaning-option-group">
@@ -164,7 +275,7 @@ function getCleaningFormHTML() {
     <div class="cleaning-card">
         <div class="cleaning-card-header">
             <h3 class="cleaning-card-title">Remove Duplicates</h3>
-            <p class="cleaning-card-desc">Remove duplicate rows from your dataset</p>
+            <p class="cleaning-card-desc">Remove repeated rows while choosing which occurrence to keep.</p>
         </div>
         <div class="cleaning-options">
             <div class="cleaning-option-group">
@@ -182,7 +293,7 @@ function getCleaningFormHTML() {
     <div class="cleaning-card">
         <div class="cleaning-card-header">
             <h3 class="cleaning-card-title">Convert Data Types</h3>
-            <p class="cleaning-card-desc">Change the data type of a column</p>
+            <p class="cleaning-card-desc">Convert columns into text, numbers, dates, or boolean values.</p>
         </div>
         <div class="cleaning-options">
             <div class="cleaning-option-group">
@@ -206,7 +317,7 @@ function getCleaningFormHTML() {
     <div class="cleaning-card">
         <div class="cleaning-card-header">
             <h3 class="cleaning-card-title">Standardize Formats</h3>
-            <p class="cleaning-card-desc">Standardize text formatting in a column</p>
+            <p class="cleaning-card-desc">Make text values consistent by changing case or trimming spaces.</p>
         </div>
         <div class="cleaning-options">
             <div class="cleaning-option-group">
@@ -229,7 +340,7 @@ function getCleaningFormHTML() {
     <div class="cleaning-card">
         <div class="cleaning-card-header">
             <h3 class="cleaning-card-title">Filter Invalid Data</h3>
-            <p class="cleaning-card-desc">Remove rows based on a condition</p>
+            <p class="cleaning-card-desc">Keep or remove rows based on a rule for one column.</p>
         </div>
         <div class="cleaning-options">
             <div class="cleaning-option-group">
@@ -245,6 +356,8 @@ function getCleaningFormHTML() {
                     <option value="not_equals">Not Equals</option>
                     <option value="contains">Contains (text)</option>
                     <option value="not_contains">Does Not Contain (text)</option>
+                    <option value="is_empty">Is Empty / Missing</option>
+                    <option value="not_empty">Is Not Empty</option>
                 </select>
             </div>
             <div class="cleaning-option-group">
@@ -253,50 +366,59 @@ function getCleaningFormHTML() {
             </div>
             <button type="button" class="cleaning-btn" id="modal-apply-filter">Apply</button>
         </div>
+    </div>
+
+    <div class="cleaning-log" id="cleaning-log" style="display:none">
+        <h3 class="subsection-title">Cleaning Log</h3>
+        <ul id="cleaning-log-list" class="log-list"></ul>
     </div>`;
+}
+
+function rowKey(row, cols) {
+    return cols.map(col => String(row[col] ?? '')).join('\u001f');
+}
+
+function buildRowKeyCounts(rows, cols) {
+    const counts = new Map();
+    rows.forEach(row => {
+        const key = rowKey(row, cols);
+        counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return counts;
 }
 
 function buildComparisonTable(primaryData, referenceData, mode) {
     const cols = primaryData.columns;
     const primaryRows = primaryData.rows;
     const refRows = referenceData.rows;
-
-    // Build a set of original row keys to detect deleted rows (for cleaned panel)
-    let deletedRowIndices = new Set();
-    if (mode === 'original') {
-        // Mark rows in original that no longer exist in cleaned
-        primaryRows.forEach((row, i) => {
-            const stillExists = refRows.some(refRow =>
-                cols.every(col => String(row[col] ?? '') === String(refRow[col] ?? ''))
-            );
-            if (!stillExists) deletedRowIndices.add(i);
-        });
-    }
+    const referenceCounts = buildRowKeyCounts(refRows, cols);
+    const seenCounts = new Map();
 
     let html = `<table class="data-table comparison-data-table"><thead><tr>`;
-    cols.forEach(col => { html += `<th>${col}</th>`; });
+    cols.forEach(col => { html += `<th>${escapeHtml(col)}</th>`; });
     html += `</tr></thead><tbody>`;
 
     primaryRows.slice(0, 100).forEach((row, i) => {
-        const isDeleted = mode === 'original' && deletedRowIndices.has(i);
+        const key = rowKey(row, cols);
+        const seen = (seenCounts.get(key) || 0) + 1;
+        seenCounts.set(key, seen);
+        const isDeleted = mode === 'original' && seen > (referenceCounts.get(key) || 0);
         const rowClass = isDeleted ? 'row-deleted' : '';
         html += `<tr class="${rowClass}">`;
+
         cols.forEach(col => {
             const val = row[col] ?? '';
             const refRow = refRows[i];
             const refVal = refRow ? (refRow[col] ?? '') : null;
             let cellClass = '';
-            if (!isDeleted && refRow !== undefined) {
+
+            if (!isDeleted && refRow !== undefined && primaryRows.length === refRows.length) {
                 if (mode === 'cleaned' && String(val) !== String(refVal)) {
-                    // Value changed — was it filled (was null, now has value)?
-                    if (refVal === null || refVal === '') {
-                        cellClass = 'cell-filled';
-                    } else {
-                        cellClass = 'cell-modified';
-                    }
+                    cellClass = refVal === null || refVal === '' ? 'cell-filled' : 'cell-modified';
                 }
             }
-            html += `<td class="${cellClass}" title="${val}">${val}</td>`;
+
+            html += `<td class="${cellClass}" title="${escapeHtml(val)}">${escapeHtml(val)}</td>`;
         });
         html += `</tr>`;
     });
@@ -306,6 +428,8 @@ function buildComparisonTable(primaryData, referenceData, mode) {
 }
 
 function countChangedCells(originalData, cleanedData) {
+    if (originalData.total_rows !== cleanedData.total_rows) return 0;
+
     let count = 0;
     const minRows = Math.min(originalData.rows.length, cleanedData.rows.length);
     for (let i = 0; i < minRows; i++) {
@@ -341,13 +465,32 @@ function exportCleanedData(columns, rows, format = 'csv') {
         .catch(err => console.error('Export error:', err));
 }
 
-function addToLog(message) {
+function addToLog(message, details) {
+    const time = new Date().toLocaleTimeString();
+    window.cleaningHistory.unshift({
+        time,
+        message,
+        details
+    });
+    renderCleaningLog();
+}
+
+function renderCleaningLog() {
     const logSection = document.getElementById('cleaning-log');
     const logList = document.getElementById('cleaning-log-list');
     if (!logSection || !logList) return;
+
+    logList.innerHTML = '';
+    if (window.cleaningHistory.length === 0) {
+        logSection.style.display = 'none';
+        return;
+    }
+
     logSection.style.display = 'block';
-    const li = document.createElement('li');
-    const time = new Date().toLocaleTimeString();
-    li.textContent = `[${time}] ${message}`;
-    logList.insertBefore(li, logList.firstChild);
+    window.cleaningHistory.forEach(entry => {
+        const li = document.createElement('li');
+        const target = entry.details && entry.details.target ? ` - ${entry.details.target}` : '';
+        li.textContent = `[${entry.time}] ${entry.details.label}${target}: ${entry.message}`;
+        logList.appendChild(li);
+    });
 }

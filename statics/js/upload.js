@@ -2,10 +2,60 @@
 
 window.hasActiveUpload = false;
 window.currentData = null;
+window.currentFileName = '';
 
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('fileInput');
 const uploadList = document.getElementById('upload-list');
+
+function hideWorkspace() {
+    const modal = document.getElementById('data-modal');
+    if (modal) modal.style.display = 'none';
+    document.body.classList.remove('modal-open');
+}
+
+function openWorkspace() {
+    const modal = document.getElementById('data-modal');
+    if (!modal || !window.currentData) return;
+
+    modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
+
+    if (typeof setStep === 'function') setStep(0);
+    if (typeof updateModalStepper === 'function') updateModalStepper(0);
+}
+
+function updateModalDatasetInfo(data) {
+    const datasetInfo = document.getElementById('modal-dataset-info');
+    if (!datasetInfo || !data) return;
+
+    const rowLabel = data.total_rows === 1 ? 'row' : 'rows';
+    const columnLabel = data.total_columns === 1 ? 'column' : 'columns';
+    datasetInfo.textContent = `${window.currentFileName || 'Uploaded file'} - ${data.total_rows} ${rowLabel}, ${data.total_columns} ${columnLabel}`;
+}
+
+function setUploadCompleteState(item, data) {
+    item.classList.add('upload-item-complete');
+
+    const oldActions = item.querySelector('.upload-actions');
+    if (oldActions) oldActions.remove();
+
+    const actions = document.createElement('div');
+    actions.className = 'upload-actions';
+
+    const summary = document.createElement('span');
+    summary.className = 'upload-summary';
+    summary.textContent = `${data.total_rows} rows, ${data.total_columns} columns ready`;
+
+    const openButton = document.createElement('button');
+    openButton.type = 'button';
+    openButton.className = 'open-workspace-btn';
+    openButton.textContent = 'Open workspace';
+    openButton.addEventListener('click', openWorkspace);
+
+    actions.append(summary, openButton);
+    item.appendChild(actions);
+}
 
 function showSingleFileOnlyMessage() {
     const existingNotice = document.querySelector('.single-file-notice');
@@ -17,61 +67,71 @@ function showSingleFileOnlyMessage() {
     uploadList.prepend(notice);
 }
 
-// ── Global reset — called by remove button AND modal close button ──
 function resetUploadState() {
-    // Clear upload list
-    const uploadList = document.getElementById('upload-list');
     if (uploadList) uploadList.innerHTML = '';
 
-    // Clear single file notice
     const singleNotice = document.querySelector('.single-file-notice');
     if (singleNotice) singleNotice.remove();
 
-    // Reset state
     window.hasActiveUpload = false;
     window.currentData = null;
+    window.currentFileName = '';
+    window.cleaningHistory = [];
+    if (dropZone) dropZone.classList.remove('has-file');
 
-    // Close the modal
-    const modal = document.getElementById('data-modal');
-    if (modal) modal.style.display = 'none';
-    document.body.classList.remove('modal-open');
+    hideWorkspace();
 
-    // Reset stepper to step 0
     if (typeof setStep === 'function') setStep(0);
 
-    // Clear modal preview content
     const modalContent0 = document.getElementById('modal-content-0');
     if (modalContent0) modalContent0.innerHTML = '';
 
-    // Restore cleaning form HTML
     const modalContent2 = document.getElementById('modal-content-2');
     if (modalContent2 && typeof getCleaningFormHTML === 'function') {
         modalContent2.innerHTML = getCleaningFormHTML();
     }
 
-    // Clear cleaning log
+    const datasetInfo = document.getElementById('modal-dataset-info');
+    if (datasetInfo) datasetInfo.textContent = 'No dataset loaded';
+
     const cleaningLog = document.getElementById('cleaning-log');
     if (cleaningLog) cleaningLog.style.display = 'none';
     const cleaningLogList = document.getElementById('cleaning-log-list');
     if (cleaningLogList) cleaningLogList.innerHTML = '';
 }
 
-dropZone.addEventListener('click', () => { fileInput.click(); fileInput.blur(); });
+dropZone.addEventListener('click', () => {
+    if (window.hasActiveUpload) {
+        showSingleFileOnlyMessage();
+        return;
+    }
+
+    fileInput.click();
+    fileInput.blur();
+});
 
 ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
     dropZone.addEventListener(eventName, preventDefaults, false);
 });
-function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+
+function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+}
 
 ['dragenter', 'dragover'].forEach(eventName => {
     dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
 });
+
 ['dragleave', 'drop'].forEach(eventName => {
     dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
 });
 
 dropZone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files));
-fileInput.addEventListener('change', function () { handleFiles(this.files); this.value = ''; });
+fileInput.addEventListener('change', function () {
+    handleFiles(this.files);
+    this.value = '';
+});
 
 function handleFiles(files) {
     if (!files || files.length === 0) return;
@@ -79,8 +139,11 @@ function handleFiles(files) {
         showSingleFileOnlyMessage();
         return;
     }
+
     const file = files[0];
     window.hasActiveUpload = true;
+    window.currentFileName = file.name;
+    dropZone.classList.add('has-file');
     uploadFile(file);
 }
 
@@ -88,14 +151,14 @@ function uploadFile(file) {
     const item = document.createElement('div');
     item.className = 'upload-item';
 
-    let iconSrc = file.name.endsWith('.csv') ? '/statics/icons/csv.png' : '/statics/icons/xls.png';
+    const iconSrc = file.name.toLowerCase().endsWith('.csv') ? '/statics/icons/csv.png' : '/statics/icons/xls.png';
 
     item.innerHTML = `
         <div class="upload-info">
-            <img src="${iconSrc}" class="upload-icon" alt="icon" style="width: 24px; height: 24px; object-fit: contain;">
-            <span class="upload-name" title="${file.name}">${file.name}</span>
+            <img src="${iconSrc}" class="upload-icon" alt="" style="width: 24px; height: 24px; object-fit: contain;">
+            <span class="upload-name"></span>
             <span class="upload-status">0%</span>
-            <button class="upload-remove">✕</button>
+            <button type="button" class="upload-remove" aria-label="Remove file">&times;</button>
         </div>
         <div class="progress-container">
             <div class="progress-bar"></div>
@@ -104,11 +167,14 @@ function uploadFile(file) {
 
     uploadList.appendChild(item);
 
+    const uploadName = item.querySelector('.upload-name');
     const progressBar = item.querySelector('.progress-bar');
     const statusText = item.querySelector('.upload-status');
     const removeBtn = item.querySelector('.upload-remove');
 
-    // ── Fixed typo: was "rremoveBtn" ──
+    uploadName.textContent = file.name;
+    uploadName.title = file.name;
+
     removeBtn.onclick = () => {
         resetUploadState();
     };
@@ -132,14 +198,18 @@ function uploadFile(file) {
             } catch (error) {
                 statusText.textContent = 'Invalid server response';
                 statusText.style.color = '#ef4444';
+                window.hasActiveUpload = false;
+                window.currentFileName = '';
+                dropZone.classList.remove('has-file');
                 return;
             }
 
-            statusText.textContent = 'Done';
+            statusText.textContent = 'Ready';
             statusText.style.color = '#10b981';
             progressBar.style.width = '100%';
             progressBar.classList.add('completed');
             window.currentData = data;
+            updateModalDatasetInfo(data);
 
             if (typeof displayTable === 'function') {
                 displayTable(data.columns, data.rows, data.total_rows);
@@ -150,15 +220,23 @@ function uploadFile(file) {
             if (typeof displayCleaning === 'function') {
                 displayCleaning(data);
             }
+
+            setUploadCompleteState(item, data);
         } else {
             statusText.textContent = 'Error';
             statusText.style.color = '#ef4444';
+            window.hasActiveUpload = false;
+            window.currentFileName = '';
+            dropZone.classList.remove('has-file');
         }
     };
 
     xhr.onerror = () => {
         statusText.textContent = 'Error';
         statusText.style.color = '#ef4444';
+        window.hasActiveUpload = false;
+        window.currentFileName = '';
+        dropZone.classList.remove('has-file');
     };
 
     const formData = new FormData();
@@ -167,7 +245,6 @@ function uploadFile(file) {
 }
 
 function displayTable(columns, rows, total_rows) {
-    const modal = document.getElementById('data-modal');
     const modalContent = document.getElementById('modal-content-0');
 
     modalContent.innerHTML = '';
@@ -195,7 +272,7 @@ function displayTable(columns, rows, total_rows) {
     table.appendChild(thead);
 
     const tbody = document.createElement('tbody');
-    rows.forEach(row => {
+    rows.slice(0, 100).forEach(row => {
         const tr = document.createElement('tr');
         columns.forEach(col => {
             const td = document.createElement('td');
@@ -209,40 +286,43 @@ function displayTable(columns, rows, total_rows) {
     scrollContainer.appendChild(table);
     modalContent.appendChild(scrollContainer);
 
-    // Force reset all modal content tabs to hidden first
     document.querySelectorAll('.modal-content').forEach(el => el.classList.remove('active-modal-content'));
     const content0 = document.getElementById('modal-content-0');
     if (content0) content0.classList.add('active-modal-content');
 
-    // Force stepper to step 0
     if (typeof setStep === 'function') setStep(0);
     if (typeof updateModalStepper === 'function') updateModalStepper(0);
-
-    modal.style.display = 'flex';
-    document.body.classList.add('modal-open');
 }
 
-// Modal close button handler
 document.addEventListener('DOMContentLoaded', function () {
     const modal = document.getElementById('data-modal');
     const closeBtn = document.getElementById('modal-close-btn');
+    const newUploadBtn = document.getElementById('modal-new-upload-btn');
 
-    function confirmCloseModal() {
-        const confirmed = confirm('Are you sure you want to close this modal? Any unsaved changes will be lost.');
-        if (confirmed) {
-            resetUploadState();
-        }
+    function confirmNewUpload() {
+        const confirmed = confirm('Upload a new file? This will clear the current dataset and workspace.');
+        if (confirmed) resetUploadState();
+    }
+
+    if (newUploadBtn) {
+        newUploadBtn.addEventListener('click', confirmNewUpload);
     }
 
     if (closeBtn) {
-        closeBtn.addEventListener('click', confirmCloseModal);
+        closeBtn.addEventListener('click', hideWorkspace);
     }
 
     if (modal) {
         modal.addEventListener('click', function (e) {
             if (e.target === modal) {
-                confirmCloseModal();
+                hideWorkspace();
             }
         });
     }
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && modal && modal.style.display === 'flex') {
+            hideWorkspace();
+        }
+    });
 });

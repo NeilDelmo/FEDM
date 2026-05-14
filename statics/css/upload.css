@@ -317,6 +317,11 @@ body {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
+.upload-item-complete {
+    border-color: var(--green-border);
+    box-shadow: 0 8px 24px rgba(22, 163, 74, 0.1);
+}
+
 .upload-info {
     display: flex;
     align-items: center;
@@ -358,6 +363,45 @@ body {
 
 .upload-remove:hover {
     color: #ef4444;
+}
+
+.upload-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #eef2f7;
+}
+
+.upload-summary {
+    color: #64748b;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.open-workspace-btn {
+    min-height: 34px;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 6px;
+    background: var(--green-primary);
+    color: #ffffff;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 700;
+    white-space: nowrap;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.open-workspace-btn:hover {
+    background: var(--green-medium);
+    transform: translateY(-1px);
+}
+
+.open-workspace-btn:active {
+    transform: translateY(0);
 }
 
 .progress-container {
@@ -526,6 +570,17 @@ body {
     margin-bottom: 16px;
 }
 
+.cleaning-guide {
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    border: 1px solid var(--green-border);
+    border-radius: 8px;
+    background: var(--green-tint);
+    color: var(--green-dark);
+    font-size: 13px;
+    font-weight: 600;
+}
+
 .cleaning-card-header {
     margin-bottom: 16px;
 }
@@ -634,6 +689,32 @@ body {
 }
 
 /* ── Modal Overlay (success/clean) ─────────────────── */
+@media (max-width: 640px) {
+    .upload-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .open-workspace-btn {
+        width: 100%;
+    }
+
+    .modal-header {
+        align-items: stretch;
+        flex-direction: column;
+        padding: 14px 16px;
+    }
+
+    .modal-header-actions {
+        justify-content: space-between;
+        width: 100%;
+    }
+
+    .modal-secondary-btn {
+        flex: 1;
+    }
+}
+
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -899,8 +980,13 @@ body.modal-open #view-clean {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 16px;
     padding: 16px 24px;
     border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-title-group {
+    min-width: 0;
 }
 
 .modal-title {
@@ -908,6 +994,42 @@ body.modal-open #view-clean {
     font-weight: 600;
     color: #1e293b;
     margin: 0;
+}
+
+.modal-dataset-info {
+    margin-top: 4px;
+    color: #64748b;
+    font-size: 12.5px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.modal-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.modal-secondary-btn {
+    min-height: 34px;
+    padding: 7px 13px;
+    border: 1px solid var(--green-border);
+    border-radius: 6px;
+    background: var(--green-tint);
+    color: var(--green-dark);
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 700;
+    white-space: nowrap;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.modal-secondary-btn:hover {
+    background: var(--green-light);
+    border-color: var(--green-primary);
 }
 
 .modal-close-btn {
@@ -980,6 +1102,37 @@ body.modal-open #view-clean {
 /* ── Comparison View ────────────────────────────────── */
 .comparison-header {
     padding: 4px 0 16px;
+}
+
+.cleaning-decision {
+    margin-bottom: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--green-border);
+    border-radius: 8px;
+    background: var(--green-tint);
+}
+
+.decision-label {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--green-dark);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.cleaning-decision h3 {
+    margin: 0;
+    color: var(--green-darkest);
+    font-size: 15px;
+}
+
+.cleaning-decision p {
+    margin: 6px 0 0;
+    color: #4b5563;
+    font-size: 13px;
+    line-height: 1.45;
 }
 
 .comparison-summary {

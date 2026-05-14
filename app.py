@@ -6,6 +6,75 @@ import io
 
 app = Flask(__name__, static_folder='statics', static_url_path='/statics')
 
+MISSING_MARKERS = ['', ' ', 'NA', 'N/A', 'NULL', 'None', 'none', 'null', 'nan', 'NaN']
+
+
+def normalize_missing_values(df):
+    return df.replace(MISSING_MARKERS, pd.NA).replace(r'^\s*$', pd.NA, regex=True)
+
+
+def validate_column(df, column):
+    if column not in df.columns:
+        raise ValueError(f'Column "{column}" was not found in the dataset')
+
+
+def numeric_series_for_cleaning(series):
+    numeric = pd.to_numeric(series, errors='coerce')
+    non_missing = series.notna()
+    invalid_count = int((non_missing & numeric.isna()).sum())
+    return numeric, invalid_count
+
+
+def build_dataset_payload(df, message=None):
+    df = normalize_missing_values(df.copy())
+    total_rows = len(df)
+    total_columns = len(df.columns)
+    total_missing = int(df.isnull().sum().sum())
+    total_duplicates = int(df.duplicated().sum())
+
+    clean_df = df.where(pd.notnull(df), None)
+    rows = json.loads(clean_df.to_json(orient='records', date_format='iso'))
+
+    column_details = []
+    for col in df.columns:
+        missing_count = int(df[col].isnull().sum())
+        missing_percent = round((missing_count / total_rows) * 100, 2) if total_rows > 0 else 0
+        column_details.append({
+            'name': col,
+            'dtype': str(df[col].dtype),
+            'missing': missing_count,
+            'missing_percent': missing_percent,
+            'unique': int(df[col].nunique())
+        })
+
+    stats = []
+    numeric_cols = df.select_dtypes(include='number').columns
+    for col in numeric_cols:
+        stats.append({
+            'column': col,
+            'min': round(float(df[col].min()), 2) if pd.notnull(df[col].min()) else None,
+            'max': round(float(df[col].max()), 2) if pd.notnull(df[col].max()) else None,
+            'mean': round(float(df[col].mean()), 2) if pd.notnull(df[col].mean()) else None,
+            'median': round(float(df[col].median()), 2) if pd.notnull(df[col].median()) else None,
+            'std': round(float(df[col].std()), 2) if pd.notnull(df[col].std()) else None,
+        })
+
+    payload = {
+        'columns': df.columns.tolist(),
+        'rows': rows,
+        'total_rows': total_rows,
+        'total_columns': total_columns,
+        'total_missing': total_missing,
+        'total_duplicates': total_duplicates,
+        'column_details': column_details,
+        'stats': stats
+    }
+
+    if message is not None:
+        payload['message'] = message
+
+    return payload
+
 
 @app.route('/')
 def home():
@@ -25,11 +94,11 @@ def upload_module():
 def upload():
     if 'file' not in request.files:
         return jsonify({'error': 'No file part in the request'}), 400
-    
+
     file = request.files['file']
     if file.filename == '':
         return jsonify({'error': 'No file selected for uploading'}), 400
-    
+
     filename = file.filename.lower()
 
     if filename.endswith('.csv'):
@@ -37,57 +106,14 @@ def upload():
     else:
         df = pd.read_excel(file)
 
-    total_rows = len(df)
-    total_columns = len(df.columns)
-    total_missing = int(df.isnull().sum().sum())
-    total_duplicates = int(df.duplicated().sum())
-    preview_df = df.head(100)
-    # Use pandas JSON serializer so NaN/NaT become JSON null values.
-    rows = json.loads(preview_df.to_json(orient='records', date_format='iso'))
-
-    column_details = []
-    for col in df.columns:
-        missing_count = int(df[col].isnull().sum())
-        missing_percent = round((missing_count / total_rows) * 100, 2) if total_rows > 0 else 0
-        unique_count = int(df[col].nunique())
-        dtype = str(df[col].dtype)
-        column_details.append({
-            'name': col,
-            'dtype': dtype,
-            'missing': missing_count,
-            'missing_percent': missing_percent,
-            'unique': unique_count
-        })
-
-    stats = []
-    numeric_cols = df.select_dtypes(include='number').columns
-    for col in numeric_cols:
-        stats.append({
-            'column': col,
-            'min': round(float(df[col].min()), 2) if pd.notnull(df[col].min()) else None,
-            'max': round(float(df[col].max()), 2) if pd.notnull(df[col].max()) else None,
-            'mean': round(float(df[col].mean()), 2) if pd.notnull(df[col].mean()) else None,
-            'median': round(float(df[col].median()), 2) if pd.notnull(df[col].median()) else None,
-            'std': round(float(df[col].std()), 2) if pd.notnull(df[col].std()) else None,
-        })
-    
-    return jsonify({
-        'columns': preview_df.columns.tolist(),
-        'rows': rows,
-        'total_rows': total_rows,
-        'total_columns': total_columns,
-        'total_missing': total_missing,
-        'total_duplicates': total_duplicates,
-        'column_details': column_details,
-        'stats': stats
-    })
+    return jsonify(build_dataset_payload(df))
 
 @app.route('/clean', methods=['POST'])
 def clean():
     data = request.get_json()
     
     # Rebuild dataframe from the rows sent by frontend
-    df = pd.DataFrame(data['rows'])
+    df = normalize_missing_values(pd.DataFrame(data['rows']))
     action = data['action']
     result_message = ''
 
@@ -96,28 +122,53 @@ def clean():
         column = data['column']
         method = data['method']
         before = int(df.isnull().sum().sum())
+        before_rows = len(df)
 
         if column == 'all':
-            cols = df.columns
+            cols = list(df.columns)
         else:
+            try:
+                validate_column(df, column)
+            except ValueError as e:
+                return jsonify({'error': str(e)}), 400
             cols = [column]
 
+        skipped = []
         for col in cols:
             if method == 'drop':
                 df = df.dropna(subset=[col])
             elif method == 'mean':
-                if pd.api.types.is_numeric_dtype(df[col]):
-                    df[col] = df[col].fillna(df[col].mean())
+                numeric, invalid_count = numeric_series_for_cleaning(df[col])
+                if invalid_count > 0 or numeric.dropna().empty:
+                    skipped.append(col)
+                    continue
+                df[col] = numeric.fillna(numeric.mean())
             elif method == 'median':
-                if pd.api.types.is_numeric_dtype(df[col]):
-                    df[col] = df[col].fillna(df[col].median())
+                numeric, invalid_count = numeric_series_for_cleaning(df[col])
+                if invalid_count > 0 or numeric.dropna().empty:
+                    skipped.append(col)
+                    continue
+                df[col] = numeric.fillna(numeric.median())
             elif method == 'mode':
-                df[col] = df[col].fillna(df[col].mode()[0])
+                mode_values = df[col].mode(dropna=True)
+                if not mode_values.empty:
+                    df[col] = df[col].fillna(mode_values.iloc[0])
             elif method == 'custom':
                 df[col] = df[col].fillna(data['custom_value'])
+            else:
+                return jsonify({'error': f'Unsupported missing-value method: {method}'}), 400
+
+        if skipped and len(skipped) == len(cols):
+            return jsonify({'error': 'Mean/median can only be applied to numeric columns or numeric-looking values'}), 400
 
         after = int(df.isnull().sum().sum())
-        result_message = f'Missing values reduced from {before} to {after}'
+        removed_rows = before_rows - len(df)
+        fixed = before - after
+        result_message = f'Missing values reduced from {before} to {after}; {fixed} cells filled or cleared'
+        if removed_rows:
+            result_message += f'; {removed_rows} rows removed'
+        if skipped:
+            result_message += f'; skipped non-numeric columns: {", ".join(skipped)}'
 
     # ─── 2. Remove Duplicates ────────────────────────────────
     elif action == 'duplicates':
@@ -131,7 +182,7 @@ def clean():
 
         after = len(df)
         removed = before - after
-        result_message = f'Removed {removed} duplicate rows ({before} → {after} rows)'
+        result_message = f'Removed {removed} duplicate rows ({before} to {after} rows)'
 
     # ─── 3. Convert Data Types ───────────────────────────────
     elif action == 'dtype':
@@ -139,8 +190,10 @@ def clean():
         target = data['target']
 
         try:
+            validate_column(df, column)
+            before_missing = int(df[column].isnull().sum())
             if target == 'string':
-                df[column] = df[column].astype(str)
+                df[column] = df[column].astype('string')
             elif target == 'integer':
                 df[column] = pd.to_numeric(df[column], errors='coerce').astype('Int64')
             elif target == 'float':
@@ -148,9 +201,20 @@ def clean():
             elif target == 'datetime':
                 df[column] = pd.to_datetime(df[column], errors='coerce')
             elif target == 'boolean':
-                df[column] = df[column].astype(bool)
+                bool_map = {
+                    'true': True, 'yes': True, 'y': True, '1': True,
+                    'false': False, 'no': False, 'n': False, '0': False
+                }
+                normalized = df[column].astype('string').str.strip().str.lower()
+                df[column] = normalized.map(bool_map)
+            else:
+                return jsonify({'error': f'Unsupported target data type: {target}'}), 400
 
+            after_missing = int(df[column].isnull().sum())
+            new_invalid = max(after_missing - before_missing, 0)
             result_message = f'Column "{column}" converted to {target}'
+            if new_invalid:
+                result_message += f'; {new_invalid} invalid values became blank'
         except Exception as e:
             return jsonify({'error': str(e)}), 400
 
@@ -158,18 +222,27 @@ def clean():
     elif action == 'format':
         column = data['column']
         method = data['method']
+        try:
+            validate_column(df, column)
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
 
-        if df[column].dtype == object:
+        if df[column].dtype == object or pd.api.types.is_string_dtype(df[column]):
+            before_values = df[column].copy()
+            text_series = df[column].astype('string')
             if method == 'uppercase':
-                df[column] = df[column].str.upper()
+                df[column] = text_series.str.upper()
             elif method == 'lowercase':
-                df[column] = df[column].str.lower()
+                df[column] = text_series.str.lower()
             elif method == 'titlecase':
-                df[column] = df[column].str.title()
+                df[column] = text_series.str.strip().str.replace(r'\s+', ' ', regex=True).str.title()
             elif method == 'strip':
-                df[column] = df[column].str.strip()
+                df[column] = text_series.str.strip().str.replace(r'\s+', ' ', regex=True)
+            else:
+                return jsonify({'error': f'Unsupported format method: {method}'}), 400
 
-            result_message = f'Column "{column}" formatted to {method}'
+            changed = int((before_values.astype('string') != df[column].astype('string')).fillna(False).sum())
+            result_message = f'Column "{column}" formatted to {method}; {changed} cells changed'
         else:
             return jsonify({'error': f'Column "{column}" is not a text column'}), 400
 
@@ -181,6 +254,7 @@ def clean():
         before = len(df)
 
         try:
+            validate_column(df, column)
             if condition == 'greater_than':
                 df = df[pd.to_numeric(df[column], errors='coerce') > float(value)]
             elif condition == 'less_than':
@@ -190,25 +264,29 @@ def clean():
             elif condition == 'not_equals':
                 df = df[df[column].astype(str) != str(value)]
             elif condition == 'contains':
-                df = df[df[column].astype(str).str.contains(value, na=False)]
+                df = df[df[column].astype(str).str.contains(value, na=False, regex=False)]
             elif condition == 'not_contains':
-                df = df[~df[column].astype(str).str.contains(value, na=False)]
+                df = df[~df[column].astype(str).str.contains(value, na=False, regex=False)]
+            elif condition == 'is_empty':
+                df = df[df[column].isna()]
+            elif condition == 'not_empty':
+                df = df[df[column].notna()]
+            else:
+                return jsonify({'error': f'Unsupported filter condition: {condition}'}), 400
 
             after = len(df)
-            result_message = f'Filtered "{column}": {before} → {after} rows remaining'
+            removed = before - after
+            result_message = f'Filtered "{column}": {before} to {after} rows remaining; {removed} rows removed'
         except Exception as e:
             return jsonify({'error': str(e)}), 400
 
+    else:
+        return jsonify({'error': f'Unsupported cleaning action: {action}'}), 400
+
     # ─── Send back cleaned data ──────────────────────────────
     df = df.where(pd.notnull(df), None)
-    rows = json.loads(df.to_json(orient='records', date_format='iso'))
 
-    return jsonify({
-        'columns': df.columns.tolist(),
-        'rows': rows,
-        'total_rows': len(df),
-        'message': result_message
-    })
+    return jsonify(build_dataset_payload(df, result_message))
 
 @app.route('/export', methods=['POST'])
 def export():
