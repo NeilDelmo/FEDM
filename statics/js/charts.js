@@ -86,8 +86,8 @@ function displayCharts(data) {
                     </select>
                 </div>
                 <div class="chart-control-group">
-                    <label class="chart-control-label">Value Variable</label>
-                    <select id="chart-y-column" class="chart-select">
+                    <label class="chart-control-label">Value Variables</label>
+                    <select id="chart-y-column" class="chart-select chart-multi-select" multiple size="4">
                         ${yOptions.map(c => `<option value="${escapeChartHtml(c)}">${escapeChartHtml(c)}</option>`).join('')}
                     </select>
                 </div>
@@ -140,7 +140,7 @@ function displayCharts(data) {
                 </div>
             </div>
             <div class="charts-help">
-                Pick the scenario sir asks for, then choose the CSV columns. Use Count Rows for frequency, distribution, or percentage questions.
+                Pick the scenario sir asks for, then choose the CSV columns. Hold Ctrl or Shift to select multiple value variables for bar and line charts.
             </div>
         </div>
 
@@ -178,7 +178,11 @@ function displayCharts(data) {
     const xSelect = document.getElementById('chart-x-column');
     const ySelect = document.getElementById('chart-y-column');
     xSelect.value = getBestCategoryColumn(columns, numericCols);
-    if (numericCols.length > 0) ySelect.value = numericCols[0];
+    if (numericCols.length > 0) {
+        Array.from(ySelect.options).forEach((option, index) => {
+            option.selected = index === 0;
+        });
+    }
     if (dateCols.length > 0) {
         document.getElementById('chart-scenario').dataset.bestDateColumn = dateCols[0];
     }
@@ -229,7 +233,15 @@ function applyChartScenario(data) {
 function syncChartControls() {
     const aggregation = document.getElementById('chart-aggregation').value;
     const ySelect = document.getElementById('chart-y-column');
-    ySelect.disabled = aggregation === 'count';
+    ySelect.classList.toggle('chart-select-muted', aggregation === 'count');
+    ySelect.title = aggregation === 'count'
+        ? 'Count Rows uses the category variable; selected value variables are ignored until you choose another calculation.'
+        : 'Hold Ctrl or Shift to select multiple value variables.';
+}
+
+function getSelectedValueColumns() {
+    const ySelect = document.getElementById('chart-y-column');
+    return Array.from(ySelect.selectedOptions).map(option => option.value);
 }
 
 function syncLabelMode(data) {
@@ -237,8 +249,20 @@ function syncLabelMode(data) {
     const labelMode = document.getElementById('chart-label-mode');
     const numericCols = getNumericColumns(data.columns || [], data.rows || []);
     const isNumericCategory = numericCols.includes(xCol);
-    labelMode.disabled = !isNumericCategory;
-    labelMode.value = isNumericCategory ? 'auto' : 'exact';
+    const rangesOption = labelMode.querySelector('option[value="ranges"]');
+
+    labelMode.disabled = false;
+    if (rangesOption) rangesOption.disabled = !isNumericCategory;
+
+    if (!isNumericCategory && labelMode.value === 'ranges') {
+        labelMode.value = 'exact';
+    } else if (isNumericCategory && !labelMode.value) {
+        labelMode.value = 'auto';
+    }
+
+    labelMode.title = isNumericCategory
+        ? 'Numeric categories can be grouped as exact values or number ranges.'
+        : 'Number ranges are only available when the category variable is numeric.';
 }
 
 function getAggregatedValue(group, aggregation) {
@@ -346,9 +370,10 @@ function buildChartDataset(data, options) {
 }
 
 function generateCharts(data) {
+    const selectedYCols = getSelectedValueColumns();
     const options = {
         xCol: document.getElementById('chart-x-column').value,
-        yCol: document.getElementById('chart-y-column').value,
+        yCol: selectedYCols[0] || document.getElementById('chart-y-column').value,
         labelMode: document.getElementById('chart-label-mode').value,
         aggregation: document.getElementById('chart-aggregation').value,
         limit: Number(document.getElementById('chart-limit').value),
@@ -359,23 +384,53 @@ function generateCharts(data) {
     const numericCols = getNumericColumns(data.columns || [], data.rows || []);
     const warningEl = document.getElementById('charts-warning');
     let warning = '';
+    let valueColumns = selectedYCols.filter(col => numericCols.includes(col));
 
-    if (options.aggregation !== 'count' && !numericCols.includes(options.yCol)) {
-        warning = `"${options.yCol}" is not fully numeric, so the dashboard used Count Rows instead.`;
+    if (options.aggregation === 'count') {
+        valueColumns = [];
+    } else if (valueColumns.length === 0) {
+        warning = 'No fully numeric value variable was selected, so the dashboard used Count Rows instead.';
         options.aggregation = 'count';
+    } else if (valueColumns.length < selectedYCols.length) {
+        const skipped = selectedYCols.filter(col => !numericCols.includes(col));
+        warning = `Skipped non-numeric value variables: ${skipped.join(', ')}.`;
     }
 
-    const chartRows = buildChartDataset(data, options);
+    const chartSeries = options.aggregation === 'count'
+        ? [{ column: null, label: 'Number of Rows', rows: buildChartDataset(data, options) }]
+        : valueColumns.map(col => ({
+            column: col,
+            label: toTitleText(col),
+            rows: buildChartDataset(data, { ...options, yCol: col })
+        }));
+    const chartRows = chartSeries[0].rows;
     const labels = chartRows.map(item => item.label);
-    const values = chartRows.map(item => item.value);
+    if (chartSeries.length > 1) {
+        chartSeries.slice(1).forEach(series => {
+            const rowsByLabel = new Map(series.rows.map(item => [item.label, item]));
+            series.rows = labels.map(label => rowsByLabel.get(label) || {
+                label,
+                value: 0,
+                rowCount: 0,
+                sortValue: null
+            });
+        });
+    }
     const palette = chartPalettes[options.paletteName] || chartPalettes.mixed;
     const colors = labels.map((_, i) => palette[i % palette.length]);
     const categoryLabel = toTitleText(options.xCol);
-    const valueLabel = options.aggregation === 'count' ? 'Number of Rows' : toTitleText(options.yCol);
+    const valueLabel = options.aggregation === 'count'
+        ? 'Number of Rows'
+        : chartSeries.map(series => series.label).join(', ');
     const calculationLabel = toTitleText(options.aggregation);
     const metricLabel = options.aggregation === 'count'
         ? `Number of Records by ${categoryLabel}`
-        : `${calculationLabel} ${valueLabel} by ${categoryLabel}`;
+        : `${calculationLabel} ${chartSeries.length > 1 ? 'Values' : valueLabel} by ${categoryLabel}`;
+    const pieSeries = chartSeries[0];
+    const pieValues = pieSeries.rows.map(item => item.value);
+    const pieMetricLabel = options.aggregation === 'count'
+        ? metricLabel
+        : `${calculationLabel} ${pieSeries.label} by ${categoryLabel}`;
 
     document.getElementById('charts-area').style.display = 'block';
     document.getElementById('charts-empty').style.display = 'none';
@@ -385,11 +440,11 @@ function generateCharts(data) {
         `This dashboard groups records by ${categoryLabel} and shows ${options.aggregation === 'count' ? 'how many records are in each group' : `${calculationLabel.toLowerCase()} ${valueLabel}`} for the top ${labels.length} groups.`;
     document.getElementById('bar-chart-title').textContent = `Bar Chart - ${metricLabel}`;
     document.getElementById('line-chart-title').textContent = `Line Chart - ${metricLabel}`;
-    document.getElementById('pie-chart-title').textContent = `Pie Chart - ${metricLabel}`;
+    document.getElementById('pie-chart-title').textContent = `Pie Chart - ${pieMetricLabel}`;
 
-    renderBarChart(labels, values, colors, metricLabel, categoryLabel, valueLabel);
-    renderLineChart(labels, values, palette[0], metricLabel, categoryLabel, valueLabel);
-    renderPieChart(labels, values, colors);
+    renderBarChart(labels, chartSeries, palette, metricLabel, categoryLabel, valueLabel);
+    renderLineChart(labels, chartSeries, palette, metricLabel, categoryLabel, valueLabel);
+    renderPieChart(labels, pieValues, colors);
 }
 
 function sharedScaleOptions(categoryLabel, valueLabel) {
@@ -408,58 +463,74 @@ function sharedScaleOptions(categoryLabel, valueLabel) {
     };
 }
 
-function renderBarChart(labels, values, colors, metricLabel, categoryLabel, valueLabel) {
+function buildSeriesDatasets(chartSeries, palette, type) {
+    return chartSeries.map((series, index) => {
+        const color = palette[index % palette.length];
+        const base = {
+            label: series.label,
+            data: series.rows.map(item => item.value)
+        };
+
+        if (type === 'line') {
+            return {
+                ...base,
+                borderColor: color,
+                backgroundColor: `${color}22`,
+                borderWidth: 2.5,
+                pointBackgroundColor: color,
+                pointRadius: 4,
+                fill: chartSeries.length === 1,
+                tension: 0.35
+            };
+        }
+
+        return {
+            ...base,
+            backgroundColor: chartSeries.length === 1
+                ? series.rows.map((_, colorIndex) => palette[colorIndex % palette.length])
+                : color,
+            borderRadius: 6,
+            borderSkipped: false
+        };
+    });
+}
+
+function renderBarChart(labels, chartSeries, palette, metricLabel, categoryLabel, valueLabel) {
     if (barChartInstance) barChartInstance.destroy();
     const barCtx = document.getElementById('bar-chart').getContext('2d');
     barChartInstance = new Chart(barCtx, {
         type: 'bar',
         data: {
             labels,
-            datasets: [{
-                label: metricLabel,
-                data: values,
-                backgroundColor: colors,
-                borderRadius: 6,
-                borderSkipped: false
-            }]
+            datasets: buildSeriesDatasets(chartSeries, palette, 'bar')
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { display: false },
-                tooltip: { callbacks: { label: ctx => ` ${metricLabel}: ${ctx.parsed.y}` } }
+                legend: { display: chartSeries.length > 1 },
+                tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}` } }
             },
             scales: sharedScaleOptions(categoryLabel, valueLabel)
         }
     });
 }
 
-function renderLineChart(labels, values, mainColor, metricLabel, categoryLabel, valueLabel) {
+function renderLineChart(labels, chartSeries, palette, metricLabel, categoryLabel, valueLabel) {
     if (lineChartInstance) lineChartInstance.destroy();
     const lineCtx = document.getElementById('line-chart').getContext('2d');
     lineChartInstance = new Chart(lineCtx, {
         type: 'line',
         data: {
             labels,
-            datasets: [{
-                label: metricLabel,
-                data: values,
-                borderColor: mainColor,
-                backgroundColor: `${mainColor}22`,
-                borderWidth: 2.5,
-                pointBackgroundColor: mainColor,
-                pointRadius: 4,
-                fill: true,
-                tension: 0.35
-            }]
+            datasets: buildSeriesDatasets(chartSeries, palette, 'line')
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { display: false },
-                tooltip: { callbacks: { label: ctx => ` ${metricLabel}: ${ctx.parsed.y}` } }
+                legend: { display: chartSeries.length > 1 },
+                tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}` } }
             },
             scales: sharedScaleOptions(categoryLabel, valueLabel)
         }

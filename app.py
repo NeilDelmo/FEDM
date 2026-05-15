@@ -3,10 +3,16 @@ import pandas as pd
 import json
 import os
 import io
+import time
 
 app = Flask(__name__, static_folder='statics', static_url_path='/statics')
 
 MISSING_MARKERS = ['', ' ', 'NA', 'N/A', 'NULL', 'None', 'none', 'null', 'nan', 'NaN']
+
+
+@app.context_processor
+def inject_static_version():
+    return {'static_version': int(time.time())}
 
 
 def normalize_missing_values(df):

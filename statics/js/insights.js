@@ -4,7 +4,17 @@ function displayInsights(data) {
     const container = document.getElementById('modal-content-3');
     if (!container) return;
 
-    container.innerHTML = '<div class="insights-loading">Generating insights...</div>';
+    container.innerHTML = `
+        <div class="insights-loading">
+            <div class="insights-loading-text">
+                <strong>Analyzing data...</strong>
+                <span>Generating summaries, frequent values, and patterns</span>
+            </div>
+            <div class="insights-progress-track">
+                <div class="insights-progress-bar"></div>
+            </div>
+        </div>
+    `;
 
     fetch('/analyze', {
         method: 'POST',
@@ -13,10 +23,14 @@ function displayInsights(data) {
     })
     .then(res => res.json())
     .then(insights => {
+        if (insights.error) {
+            container.innerHTML = `<div class="insights-error">${insights.error}</div>`;
+            return;
+        }
         renderInsights(container, insights, data);
     })
     .catch(err => {
-        container.innerHTML = '<p style="color:red;">Failed to generate insights.</p>';
+        container.innerHTML = '<div class="insights-error">Failed to generate insights. Please try again.</div>';
         console.error('Insights error:', err);
     });
 }

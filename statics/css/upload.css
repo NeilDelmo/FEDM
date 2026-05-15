@@ -555,12 +555,12 @@ body {
 
 .missing-high {
     color: #ef4444;
-    font-weight: 600;
+    font-weight: 400;
 }
 
 .missing-low {
     color: var(--green-primary);
-    font-weight: 600;
+    font-weight: 400;
 }
 
 .missing-none {
@@ -670,6 +670,66 @@ body {
 
 .cleaning-btn:hover {
     background-color: var(--green-medium);
+}
+
+.cleaning-btn:disabled,
+.cleaning-select:disabled,
+.cleaning-input:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+}
+
+.cleaning-is-loading .cleaning-card {
+    opacity: 0.72;
+}
+
+.cleaning-progress {
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    border: 1px solid #bae6fd;
+    border-radius: 8px;
+    background: #f0f9ff;
+}
+
+.cleaning-progress-text {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+    color: #075985;
+    font-size: 0.84rem;
+}
+
+.cleaning-progress-text span {
+    color: #0369a1;
+    font-size: 0.78rem;
+    text-align: right;
+}
+
+.cleaning-progress-track {
+    height: 7px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #dbeafe;
+}
+
+.cleaning-progress-bar {
+    width: 42%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--green-primary), #38bdf8, var(--green-primary));
+    animation: cleaning-progress-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes cleaning-progress-slide {
+    0% {
+        transform: translateX(-110%);
+    }
+
+    100% {
+        transform: translateX(240%);
+    }
 }
 
 .cleaning-log {
@@ -1202,6 +1262,7 @@ body.modal-open #view-clean {
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     overflow: hidden;
+    min-width: 0;
 }
 
 .panel-label {
@@ -1230,8 +1291,15 @@ body.modal-open #view-clean {
 }
 
 .comparison-table-scroll {
+    height: 320px;
     max-height: 320px;
-    overflow: auto;
+    overflow: scroll;
+    scrollbar-gutter: stable both-edges;
+}
+
+.comparison-data-table {
+    table-layout: fixed;
+    border-collapse: collapse;
 }
 
 .row-deleted td {
@@ -1254,7 +1322,10 @@ body.modal-open #view-clean {
 
 .comparison-data-table td,
 .comparison-data-table th {
+    box-sizing: border-box;
     white-space: nowrap;
+    width: 160px;
+    min-width: 160px;
     max-width: 160px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1297,10 +1368,63 @@ body.modal-open #view-clean {
 
 /* ── Insights ───────────────────────────────────────── */
 .insights-loading {
-    text-align: center;
-    padding: 40px;
-    color: #6b7280;
-    font-size: 14px;
+    margin: 4px 0 16px;
+    padding: 12px 14px;
+    border: 1px solid #bae6fd;
+    border-radius: 8px;
+    background: #f0f9ff;
+}
+
+.insights-loading-text {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+    color: #075985;
+    font-size: 0.84rem;
+}
+
+.insights-loading-text span {
+    color: #0369a1;
+    font-size: 0.78rem;
+    text-align: right;
+}
+
+.insights-progress-track {
+    height: 7px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #dbeafe;
+}
+
+.insights-progress-bar {
+    width: 42%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--green-primary), #38bdf8, var(--green-primary));
+    animation: insights-progress-slide 1.1s ease-in-out infinite;
+}
+
+.insights-error {
+    margin: 4px 0 16px;
+    padding: 12px 14px;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    background: #fef2f2;
+    color: #b91c1c;
+    font-size: 0.86rem;
+    font-weight: 600;
+}
+
+@keyframes insights-progress-slide {
+    0% {
+        transform: translateX(-110%);
+    }
+
+    100% {
+        transform: translateX(240%);
+    }
 }
 
 .insights-cards {
@@ -1545,6 +1669,15 @@ body.modal-open #view-clean {
     background: #f3f4f6;
     color: #9ca3af;
     cursor: not-allowed;
+}
+
+.chart-select-muted {
+    background: #f8fafc;
+    color: #64748b;
+}
+
+.chart-multi-select {
+    min-height: 94px;
 }
 
 .chart-control-btn-wrap {

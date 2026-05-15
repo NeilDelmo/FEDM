@@ -107,6 +107,40 @@ function getCleaningDetails(action) {
     return details;
 }
 
+function setCleaningLoading(isLoading, details = null) {
+    const container = document.getElementById('modal-content-2');
+    if (!container) return;
+
+    const existing = document.getElementById('cleaning-progress');
+    if (existing) existing.remove();
+
+    container.querySelectorAll('button, select, input').forEach(control => {
+        control.disabled = isLoading;
+    });
+
+    if (!isLoading) {
+        container.classList.remove('cleaning-is-loading');
+        return;
+    }
+
+    container.classList.add('cleaning-is-loading');
+
+    const progress = document.createElement('div');
+    progress.id = 'cleaning-progress';
+    progress.className = 'cleaning-progress';
+    progress.innerHTML = `
+        <div class="cleaning-progress-text">
+            <strong>Cleaning data...</strong>
+            <span>${escapeHtml(details ? `${details.label} - ${details.target || 'Dataset'}` : 'Applying selected method')}</span>
+        </div>
+        <div class="cleaning-progress-track">
+            <div class="cleaning-progress-bar"></div>
+        </div>
+    `;
+
+    container.prepend(progress);
+}
+
 function applyClean(action) {
     if (!window.currentData) return;
 
@@ -138,6 +172,8 @@ function applyClean(action) {
         payload.value = details.value || '';
     }
 
+    setCleaningLoading(true, details);
+
     fetch('/clean', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -146,12 +182,14 @@ function applyClean(action) {
         .then(res => res.json())
         .then(cleanedData => {
             if (cleanedData.error) {
+                setCleaningLoading(false);
                 alert('Error: ' + cleanedData.error);
                 return;
             }
             showComparisonView(originalData, cleanedData, cleanedData.message, details);
         })
         .catch(err => {
+            setCleaningLoading(false);
             console.error('Clean error:', err);
             alert('Cleaning failed. Please check the selected method and value.');
         });
@@ -205,6 +243,7 @@ function showComparisonView(originalData, cleanedData, message, details) {
     if (typeof setStep === 'function') setStep(2);
     modal.style.display = 'flex';
     document.body.classList.add('modal-open');
+    resetComparisonScrollers();
 
     document.getElementById('comp-undo-btn').onclick = () => {
         restoreCleaningTools(window.currentData);
@@ -226,6 +265,13 @@ function showComparisonView(originalData, cleanedData, message, details) {
 
         restoreCleaningTools(cleanedData);
     };
+}
+
+function resetComparisonScrollers() {
+    document.querySelectorAll('.comparison-table-scroll').forEach(scroller => {
+        scroller.scrollTop = 0;
+        scroller.scrollLeft = 0;
+    });
 }
 
 function restoreCleaningTools(data) {
@@ -393,8 +439,12 @@ function buildComparisonTable(primaryData, referenceData, mode) {
     const refRows = referenceData.rows;
     const referenceCounts = buildRowKeyCounts(refRows, cols);
     const seenCounts = new Map();
+    const columnWidth = 160;
+    const tableWidth = Math.max(cols.length * columnWidth, 480);
 
-    let html = `<table class="data-table comparison-data-table"><thead><tr>`;
+    let html = `<table class="data-table comparison-data-table" style="width:${tableWidth}px; min-width:${tableWidth}px"><colgroup>`;
+    cols.forEach(() => { html += `<col style="width:${columnWidth}px">`; });
+    html += `</colgroup><thead><tr>`;
     cols.forEach(col => { html += `<th>${escapeHtml(col)}</th>`; });
     html += `</tr></thead><tbody>`;
 

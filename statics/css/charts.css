@@ -45,6 +45,15 @@
     border-color: #ff6600;
 }
 
+.chart-select-muted {
+    background: #f8fafc;
+    color: #64748b;
+}
+
+.chart-multi-select {
+    min-height: 94px;
+}
+
 .chart-control-btn-wrap {
     justify-content: flex-end;
     flex: 0;
