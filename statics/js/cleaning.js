@@ -145,13 +145,17 @@ function applyClean(action) {
     if (!window.currentData) return;
 
     const originalData = {
-        columns: [...window.currentData.columns],
+        columns: window.currentData.columns.map(String),
         rows: window.currentData.rows.map(r => ({ ...r })),
         total_rows: window.currentData.total_rows
     };
 
     const details = getCleaningDetails(action);
-    const payload = { action: action, rows: window.currentData.rows };
+    const payload = {
+        action: action,
+        columns: window.currentData.columns.map(String),
+        rows: window.currentData.rows
+    };
 
     if (action === 'missing') {
         const customEl = getFirstElement(['custom-value', 'modal-custom-value']);
@@ -183,7 +187,7 @@ function applyClean(action) {
         .then(cleanedData => {
             if (cleanedData.error) {
                 setCleaningLoading(false);
-                alert('Error: ' + cleanedData.error);
+                addCleaningError(cleanedData.error, details);
                 return;
             }
             showComparisonView(originalData, cleanedData, cleanedData.message, details);
@@ -191,7 +195,7 @@ function applyClean(action) {
         .catch(err => {
             setCleaningLoading(false);
             console.error('Clean error:', err);
-            alert('Cleaning failed. Please check the selected method and value.');
+            addCleaningError('Cleaning failed. Please check the selected method and value.', details);
         });
 }
 
@@ -200,6 +204,7 @@ function showComparisonView(originalData, cleanedData, message, details) {
     const compContainer = document.getElementById('modal-content-2');
     const removedRows = originalData.total_rows - cleanedData.total_rows;
     const changedCells = countChangedCells(originalData, cleanedData);
+    const comparisonColumns = originalData.columns.filter(col => cleanedData.columns.includes(col));
 
     compContainer.innerHTML = `
         <div class="comparison-header">
@@ -222,14 +227,14 @@ function showComparisonView(originalData, cleanedData, message, details) {
             <div class="comparison-panel">
                 <div class="panel-label panel-label-original">Original Data <span class="panel-count">${originalData.total_rows} rows</span></div>
                 <div class="table-scroll comparison-table-scroll">
-                    ${buildComparisonTable(originalData, cleanedData, 'original')}
+                    ${buildComparisonTable(originalData, cleanedData, 'original', comparisonColumns)}
                 </div>
             </div>
 
             <div class="comparison-panel">
                 <div class="panel-label panel-label-cleaned">Cleaned Data <span class="panel-count">${cleanedData.total_rows} rows</span></div>
                 <div class="table-scroll comparison-table-scroll">
-                    ${buildComparisonTable(cleanedData, originalData, 'cleaned')}
+                    ${buildComparisonTable(cleanedData, originalData, 'cleaned', comparisonColumns)}
                 </div>
             </div>
         </div>
@@ -433,8 +438,8 @@ function buildRowKeyCounts(rows, cols) {
     return counts;
 }
 
-function buildComparisonTable(primaryData, referenceData, mode) {
-    const cols = primaryData.columns;
+function buildComparisonTable(primaryData, referenceData, mode, displayColumns = primaryData.columns) {
+    const cols = displayColumns;
     const primaryRows = primaryData.rows;
     const refRows = referenceData.rows;
     const referenceCounts = buildRowKeyCounts(refRows, cols);
@@ -520,7 +525,19 @@ function addToLog(message, details) {
     window.cleaningHistory.unshift({
         time,
         message,
-        details
+        details,
+        type: 'success'
+    });
+    renderCleaningLog();
+}
+
+function addCleaningError(message, details = null) {
+    const time = new Date().toLocaleTimeString();
+    window.cleaningHistory.unshift({
+        time,
+        message,
+        details: details || { label: 'Cleaning error', target: '' },
+        type: 'error'
     });
     renderCleaningLog();
 }
@@ -540,7 +557,9 @@ function renderCleaningLog() {
     window.cleaningHistory.forEach(entry => {
         const li = document.createElement('li');
         const target = entry.details && entry.details.target ? ` - ${entry.details.target}` : '';
-        li.textContent = `[${entry.time}] ${entry.details.label}${target}: ${entry.message}`;
+        const label = entry.type === 'error' ? 'Error' : entry.details.label;
+        li.className = entry.type === 'error' ? 'log-error' : '';
+        li.textContent = `[${entry.time}] ${label}${target}: ${entry.message}`;
         logList.appendChild(li);
     });
 }

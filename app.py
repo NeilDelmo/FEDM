@@ -8,6 +8,8 @@ import time
 app = Flask(__name__, static_folder='statics', static_url_path='/statics')
 
 MISSING_MARKERS = ['', ' ', 'NA', 'N/A', 'NULL', 'None', 'none', 'null', 'nan', 'NaN']
+TRUE_VALUES = {'true', 'yes', 'y', '1'}
+FALSE_VALUES = {'false', 'no', 'n', '0'}
 
 
 @app.context_processor
@@ -31,8 +33,36 @@ def numeric_series_for_cleaning(series):
     return numeric, invalid_count
 
 
+def coerce_custom_value(value, intent):
+    if value is None or str(value).strip() == '':
+        raise ValueError('custom value cannot be blank')
+
+    if intent == 'numeric':
+        numeric = pd.to_numeric(pd.Series([value]), errors='coerce').iloc[0]
+        if pd.isna(numeric):
+            raise ValueError(f'custom value "{value}" is not numeric')
+        return numeric
+
+    if intent == 'boolean':
+        normalized = str(value).strip().lower()
+        if normalized in TRUE_VALUES:
+            return True
+        if normalized in FALSE_VALUES:
+            return False
+        raise ValueError(f'custom value "{value}" is not true/false')
+
+    if intent == 'datetime':
+        parsed = pd.to_datetime(pd.Series([value]), errors='coerce').iloc[0]
+        if pd.isna(parsed):
+            raise ValueError(f'custom value "{value}" is not a valid date')
+        return parsed
+
+    return value
+
+
 def build_dataset_payload(df, message=None):
     df = normalize_missing_values(df.copy())
+    df.columns = [str(col) for col in df.columns]
     total_rows = len(df)
     total_columns = len(df.columns)
     total_missing = int(df.isnull().sum().sum())
@@ -48,9 +78,11 @@ def build_dataset_payload(df, message=None):
         column_details.append({
             'name': col,
             'dtype': str(df[col].dtype),
+            'intent': infer_column_intent(df[col]),
             'missing': missing_count,
             'missing_percent': missing_percent,
-            'unique': int(df[col].nunique())
+            'unique': int(df[col].nunique()),
+            'sample_values': df[col].dropna().head(3).tolist()
         })
 
     stats = []
@@ -84,17 +116,17 @@ def build_dataset_payload(df, message=None):
 
 @app.route('/')
 def home():
-	return render_template('login.html')
+    return render_template('login.html')
 
 
 @app.route('/login')
 def login():
-	return render_template('login.html')
+    return render_template('login.html')
 
 
 @app.route('/upload_module')
 def upload_module():
-	return render_template('upload_module.html')
+    return render_template('upload_module.html')
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -117,9 +149,12 @@ def upload():
 @app.route('/clean', methods=['POST'])
 def clean():
     data = request.get_json()
-    
+
     # Rebuild dataframe from the rows sent by frontend
-    df = normalize_missing_values(pd.DataFrame(data['rows']))
+    df = pd.DataFrame(data['rows'])
+    if data.get('columns'):
+        df = df.reindex(columns=[str(col) for col in data['columns']])
+    df = normalize_missing_values(df)
     action = data['action']
     result_message = ''
 
@@ -127,9 +162,12 @@ def clean():
     if action == 'missing':
         column = data['column']
         method = data['method']
+        custom_value = data.get('custom_value')
+
         before = int(df.isnull().sum().sum())
         before_rows = len(df)
 
+        # Determine which columns to process
         if column == 'all':
             cols = list(df.columns)
         else:
@@ -139,42 +177,89 @@ def clean():
                 return jsonify({'error': str(e)}), 400
             cols = [column]
 
-        skipped = []
+        results = {'applied': [], 'skipped': [], 'errors': []}
+        supported_methods = {'drop', 'mean', 'median', 'mode', 'custom'}
+        if method not in supported_methods:
+            return jsonify({'error': f'Unsupported missing-value method: {method}'}), 400
+
+        if column == 'all' and method in ['mean', 'median']:
+            non_numeric_cols = [
+                col for col in cols
+                if infer_column_intent(df[col]) != 'numeric'
+            ]
+            if non_numeric_cols:
+                skipped_list = ', '.join(non_numeric_cols)
+                return jsonify({
+                    'error': f'{method.capitalize()} can only be applied to all columns when every column is numeric. Non-numeric columns: {skipped_list}'
+                }), 400
+
         for col in cols:
-            if method == 'drop':
-                df = df.dropna(subset=[col])
-            elif method == 'mean':
-                numeric, invalid_count = numeric_series_for_cleaning(df[col])
-                if invalid_count > 0 or numeric.dropna().empty:
-                    skipped.append(col)
-                    continue
-                df[col] = numeric.fillna(numeric.mean())
-            elif method == 'median':
-                numeric, invalid_count = numeric_series_for_cleaning(df[col])
-                if invalid_count > 0 or numeric.dropna().empty:
-                    skipped.append(col)
-                    continue
-                df[col] = numeric.fillna(numeric.median())
-            elif method == 'mode':
-                mode_values = df[col].mode(dropna=True)
-                if not mode_values.empty:
-                    df[col] = df[col].fillna(mode_values.iloc[0])
-            elif method == 'custom':
-                df[col] = df[col].fillna(data['custom_value'])
-            else:
-                return jsonify({'error': f'Unsupported missing-value method: {method}'}), 400
+            col_intent = infer_column_intent(df[col])
 
-        if skipped and len(skipped) == len(cols):
-            return jsonify({'error': 'Mean/median can only be applied to numeric columns or numeric-looking values'}), 400
+            try:
+                if method == 'drop':
+                    df = df.dropna(subset=[col])
+                    results['applied'].append(f"{col}: dropped {before_rows - len(df)} rows")
 
+                elif method in ['mean', 'median'] and col_intent != 'numeric':
+                    results['skipped'].append(f"{col}: {method} requires numeric data (detected: {col_intent})")
+                    continue
+
+                elif method == 'mean':
+                    numeric = pd.to_numeric(df[col], errors='coerce')
+                    fill_val = numeric.mean()
+                    if pd.isna(fill_val):
+                        results['errors'].append(f"{col}: cannot compute mean (all values invalid)")
+                        continue
+                    df[col] = numeric.fillna(fill_val)
+                    results['applied'].append(f"{col}: filled with mean={fill_val:.2f}")
+
+                elif method == 'median':
+                    numeric = pd.to_numeric(df[col], errors='coerce')
+                    fill_val = numeric.median()
+                    if pd.isna(fill_val):
+                        results['errors'].append(f"{col}: cannot compute median")
+                        continue
+                    df[col] = numeric.fillna(fill_val)
+                    results['applied'].append(f"{col}: filled with median={fill_val:.2f}")
+
+                elif method == 'mode':
+                    # Mode works for ANY type
+                    mode_vals = df[col].mode(dropna=True)
+                    if mode_vals.empty:
+                        results['errors'].append(f"{col}: no mode found")
+                        continue
+                    fill_val = mode_vals.iloc[0]
+                    df[col] = df[col].fillna(fill_val)
+                    results['applied'].append(f"{col}: filled with mode='{fill_val}'")
+
+                elif method == 'custom':
+                    try:
+                        fill_val = coerce_custom_value(custom_value, col_intent)
+                    except ValueError as e:
+                        results['errors'].append(f"{col}: {str(e)}")
+                        continue
+                    df[col] = df[col].fillna(fill_val)
+                    results['applied'].append(f"{col}: filled with custom value ({col_intent})")
+
+            except Exception as e:
+                results['errors'].append(f"{col}: {str(e)}")
+                continue
+
+        # Build response message
         after = int(df.isnull().sum().sum())
-        removed_rows = before_rows - len(df)
-        fixed = before - after
-        result_message = f'Missing values reduced from {before} to {after}; {fixed} cells filled or cleared'
-        if removed_rows:
-            result_message += f'; {removed_rows} rows removed'
-        if skipped:
-            result_message += f'; skipped non-numeric columns: {", ".join(skipped)}'
+        message_parts = [f"Missing values: {before} → {after}"]
+
+        if results['applied']:
+            message_parts.append("✓ " + "; ".join(results['applied'][:3]))  # limit verbosity
+        if results['skipped']:
+            message_parts.append("⚠ Skipped: " + "; ".join(results['skipped']))
+        if results['errors']:
+            message_parts.append("✗ Errors: " + "; ".join(results['errors']))
+
+        result_message = " | ".join(message_parts)
+        if not results['applied'] and (results['skipped'] or results['errors']):
+            return jsonify({'error': result_message}), 400
 
     # ─── 2. Remove Duplicates ────────────────────────────────
     elif action == 'duplicates':
@@ -431,5 +516,40 @@ def analyze():
         'trends': trends
     })
 
+def infer_column_intent(series):
+    """
+    Returns: 'numeric', 'datetime', 'boolean', or 'text'
+    Based on non-null values and successful coercion attempts.
+    """
+    non_null = series.dropna()
+    if non_null.empty:
+        return 'text'  # default fallback
+
+    if pd.api.types.is_bool_dtype(series):
+        return 'boolean'
+    if pd.api.types.is_datetime64_any_dtype(series):
+        return 'datetime'
+
+    text_vals = non_null.astype(str).str.strip()
+    normalized_text = text_vals.str.lower()
+
+    # Try boolean
+    if normalized_text.isin(TRUE_VALUES | FALSE_VALUES).mean() > 0.8:
+        return 'boolean'
+
+    # Try numeric
+    numeric = pd.to_numeric(non_null, errors='coerce')
+    if numeric.notna().mean() > 0.8:  # 80%+ convertible
+        return 'numeric'
+
+    # Try datetime after numeric so ID-like numbers do not become dates.
+    date_like = text_vals.str.contains(r'[-/:T]', regex=True).mean() > 0.8
+    if date_like:
+        datetime = pd.to_datetime(non_null, errors='coerce')
+        if datetime.notna().mean() > 0.8:
+            return 'datetime'
+
+    return 'text'
+
 if __name__ == '__main__':
-	app.run(debug=True)
+    app.run(debug=True)

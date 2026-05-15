@@ -83,6 +83,29 @@ function displayProfile(data) {
 }
 
 function displayCleaning(data) {
+    window.columnDetails = data.column_details || [];
+
+    function getColumnDetail(columnName) {
+        return window.columnDetails.find(col => col.name === columnName) || {};
+    }
+
+    function getColumnTypeLabel(columnName) {
+        const detail = getColumnDetail(columnName);
+        return detail.intent || detail.dtype || 'unknown';
+    }
+
+    function getAllColumnsTypeLabel() {
+        const typeCounts = window.columnDetails.reduce((counts, col) => {
+            const type = col.intent || col.dtype || 'unknown';
+            counts[type] = (counts[type] || 0) + 1;
+            return counts;
+        }, {});
+        const types = Object.keys(typeCounts);
+        if (types.length === 0) return 'unknown';
+        if (types.length === 1) return `${types[0]} only`;
+        return `mixed: ${types.map(type => `${typeCounts[type]} ${type}`).join(', ')}`;
+    }
+
     const dropdownMap = {
         'missing-column': { addAll: true },
         'modal-missing-column': { addAll: true },
@@ -97,27 +120,79 @@ function displayCleaning(data) {
     Object.entries(dropdownMap).forEach(([id, config]) => {
         const select = document.getElementById(id);
         if (!select) return;
-        select.innerHTML = config.addAll ? '<option value="all">All Columns</option>' : '';
+        select.innerHTML = '';
+        if (config.addAll) {
+            const allOption = document.createElement('option');
+            allOption.value = 'all';
+            allOption.textContent = `All Columns (${getAllColumnsTypeLabel()})`;
+            select.appendChild(allOption);
+        }
         data.columns.forEach(col => {
             const option = document.createElement('option');
+            const detail = getColumnDetail(col);
+            const typeLabel = getColumnTypeLabel(col);
             option.value = col;
-            option.textContent = col;
+            option.textContent = `${col} (${typeLabel})`;
+            option.title = detail.sample_values && detail.sample_values.length
+                ? `Sample: ${detail.sample_values.join(', ')}`
+                : `Detected type: ${typeLabel}`;
             select.appendChild(option);
         });
     });
 
-    function attachMissingMethodHandler(selectId, customGroupId) {
-        const missingMethod = document.getElementById(selectId);
+    function attachMissingMethodHandler(columnSelectId, methodSelectId, customGroupId) {
+        const columnSelect = document.getElementById(columnSelectId);
+        const missingMethod = document.getElementById(methodSelectId);
         const customGroup = document.getElementById(customGroupId);
-        if (!missingMethod || !customGroup) return;
-        missingMethod.onchange = function() {
-            customGroup.style.display = this.value === 'custom' ? 'block' : 'none';
-        };
-        missingMethod.dispatchEvent(new Event('change'));
+        if (!columnSelect || !missingMethod || !customGroup) return;
+
+        let hint = document.getElementById(`${methodSelectId}-hint`);
+        if (!hint) {
+            hint = document.createElement('small');
+            hint.id = `${methodSelectId}-hint`;
+            hint.className = 'cleaning-field-hint';
+            missingMethod.insertAdjacentElement('afterend', hint);
+        }
+
+        function updateMissingOptions() {
+            const selectedColumn = columnSelect.value;
+            const colInfo = getColumnDetail(selectedColumn);
+            const intent = colInfo.intent || colInfo.dtype || 'unknown';
+            const nonNumericColumns = window.columnDetails.filter(col => (col.intent || col.dtype) !== 'numeric');
+            const isAllMixed = selectedColumn === 'all' && nonNumericColumns.length > 0;
+            const isSingleNonNumeric = selectedColumn !== 'all' && intent !== 'numeric';
+            const shouldDisableNumericMethods = isAllMixed || isSingleNonNumeric;
+
+            ['mean', 'median'].forEach(value => {
+                const option = missingMethod.querySelector(`option[value="${value}"]`);
+                if (option) option.disabled = shouldDisableNumericMethods;
+            });
+
+            if (shouldDisableNumericMethods && ['mean', 'median'].includes(missingMethod.value)) {
+                missingMethod.value = 'mode';
+            }
+
+            customGroup.style.display = missingMethod.value === 'custom' ? 'block' : 'none';
+            if (isAllMixed) {
+                hint.textContent = `All Columns includes non-numeric columns. Select a numeric column, or use Mode, Custom Value, or Drop Rows.`;
+                missingMethod.title = 'Mean and median need numeric data in every selected column.';
+            } else if (isSingleNonNumeric) {
+                hint.textContent = `Detected ${intent} column. Use Mode, Custom Value, or Drop Rows.`;
+                missingMethod.title = `Mean and median need numeric data. "${selectedColumn}" is detected as ${intent}.`;
+            } else {
+                hint.textContent = '';
+                missingMethod.title = 'Choose how missing values should be handled.';
+            }
+            hint.style.display = shouldDisableNumericMethods ? 'block' : 'none';
+        }
+
+        columnSelect.onchange = updateMissingOptions;
+        missingMethod.onchange = updateMissingOptions;
+        updateMissingOptions();
     }
 
-    attachMissingMethodHandler('missing-method', 'custom-value-group');
-    attachMissingMethodHandler('modal-missing-method', 'modal-custom-value-group');
+    attachMissingMethodHandler('missing-column', 'missing-method', 'custom-value-group');
+    attachMissingMethodHandler('modal-missing-column', 'modal-missing-method', 'modal-custom-value-group');
 
     function attachFilterConditionHandler(selectId, valueInputId) {
         const filterCondition = document.getElementById(selectId);

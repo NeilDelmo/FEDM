@@ -3,6 +3,7 @@
 let barChartInstance = null;
 let lineChartInstance = null;
 let pieChartInstance = null;
+let chartValueDropdownListenerReady = false;
 
 const chartPalettes = {
     mixed: ['#0ea5e9', '#f97316', '#22c55e', '#8b5cf6', '#ef4444', '#14b8a6', '#eab308', '#ec4899', '#6366f1', '#84cc16', '#f43f5e', '#06b6d4'],
@@ -57,6 +58,146 @@ function toTitleText(value) {
         .replace(/\b\w/g, letter => letter.toUpperCase());
 }
 
+function renderValueVariablePicker(yOptions) {
+    return `
+        <div id="chart-y-column" class="chart-multi-wrapper">
+            <button type="button" id="chart-y-column-button" class="chart-select chart-multi-button" aria-expanded="false" aria-haspopup="listbox">
+                <span id="chart-y-column-label">Select value variables</span>
+                <span class="chart-multi-caret" aria-hidden="true"></span>
+            </button>
+            <div id="chart-y-column-panel" class="chart-multi-panel" role="listbox" aria-multiselectable="true">
+                ${yOptions.map(c => `
+                    <label class="chart-multi-option">
+                        <input type="checkbox" class="chart-value-checkbox" value="${escapeChartHtml(c)}" />
+                        <span>${escapeChartHtml(c)}</span>
+                    </label>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function syncValueDropdownLabel() {
+    const label = document.getElementById('chart-y-column-label');
+    const selected = getSelectedValueColumns();
+    if (!label) return;
+
+    if (selected.length === 0) {
+        label.textContent = 'Select value variables';
+    } else if (selected.length === 1) {
+        label.textContent = selected[0];
+    } else {
+        label.textContent = `${selected.length} variables selected`;
+    }
+}
+
+function closeChartValueDropdown() {
+    const wrapper = document.getElementById('chart-y-column');
+    const button = document.getElementById('chart-y-column-button');
+    if (!wrapper || !button) return;
+
+    wrapper.classList.remove('is-open');
+    button.setAttribute('aria-expanded', 'false');
+}
+
+function setGenerateButtonLoading(isLoading) {
+    const button = document.getElementById('generate-charts-btn');
+    if (!button) return;
+
+    button.disabled = isLoading;
+    button.classList.toggle('is-loading', isLoading);
+    button.textContent = isLoading ? 'Generating...' : 'Generate Charts';
+}
+
+function showChartLoadingState() {
+    const area = document.getElementById('charts-area');
+    const empty = document.getElementById('charts-empty');
+    const loading = document.getElementById('charts-loading');
+    const error = document.getElementById('charts-error');
+
+    if (area) area.style.display = 'none';
+    if (empty) empty.style.display = 'none';
+    if (error) error.style.display = 'none';
+    if (loading) loading.style.display = 'block';
+    setGenerateButtonLoading(true);
+}
+
+function hideChartLoadingState() {
+    const loading = document.getElementById('charts-loading');
+    if (loading) loading.style.display = 'none';
+    setGenerateButtonLoading(false);
+}
+
+function showChartError(message) {
+    const area = document.getElementById('charts-area');
+    const empty = document.getElementById('charts-empty');
+    const loading = document.getElementById('charts-loading');
+    const error = document.getElementById('charts-error');
+
+    if (area) area.style.display = 'none';
+    if (empty) empty.style.display = 'none';
+    if (loading) loading.style.display = 'none';
+    if (error) {
+        error.textContent = message;
+        error.style.display = 'block';
+    }
+    setGenerateButtonLoading(false);
+}
+
+function destroyChartInstances() {
+    if (barChartInstance) barChartInstance.destroy();
+    if (lineChartInstance) lineChartInstance.destroy();
+    if (pieChartInstance) pieChartInstance.destroy();
+    barChartInstance = null;
+    lineChartInstance = null;
+    pieChartInstance = null;
+}
+
+function resetChartCanvasWraps() {
+    destroyChartInstances();
+    const barWrap = document.getElementById('bar-chart-wrap');
+    const lineWrap = document.getElementById('line-chart-wrap');
+    const pieWrap = document.getElementById('pie-chart-wrap');
+
+    if (barWrap) barWrap.innerHTML = '<canvas id="bar-chart"></canvas>';
+    if (lineWrap) lineWrap.innerHTML = '<canvas id="line-chart"></canvas>';
+    if (pieWrap) pieWrap.innerHTML = '<canvas id="pie-chart"></canvas>';
+}
+
+function setupValueVariablePicker() {
+    const wrapper = document.getElementById('chart-y-column');
+    const button = document.getElementById('chart-y-column-button');
+    const checkboxes = document.querySelectorAll('.chart-value-checkbox');
+    if (!wrapper || !button) return;
+
+    button.onclick = event => {
+        event.stopPropagation();
+        const isOpen = wrapper.classList.toggle('is-open');
+        button.setAttribute('aria-expanded', String(isOpen));
+    };
+
+    checkboxes.forEach(checkbox => {
+        checkbox.onchange = syncValueDropdownLabel;
+    });
+
+    if (!chartValueDropdownListenerReady) {
+        document.addEventListener('click', event => {
+            const currentWrapper = document.getElementById('chart-y-column');
+            if (currentWrapper && !currentWrapper.contains(event.target)) {
+                closeChartValueDropdown();
+            }
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') {
+                closeChartValueDropdown();
+            }
+        });
+        chartValueDropdownListenerReady = true;
+    }
+
+    syncValueDropdownLabel();
+}
+
 function displayCharts(data) {
     const container = document.getElementById('modal-content-4');
     if (!container) return;
@@ -85,11 +226,9 @@ function displayCharts(data) {
                         ${columns.map(c => `<option value="${escapeChartHtml(c)}">${escapeChartHtml(c)}</option>`).join('')}
                     </select>
                 </div>
-                <div class="chart-control-group">
+                <div class="chart-control-group chart-multi-group">
                     <label class="chart-control-label">Value Variables</label>
-                    <select id="chart-y-column" class="chart-select chart-multi-select" multiple size="4">
-                        ${yOptions.map(c => `<option value="${escapeChartHtml(c)}">${escapeChartHtml(c)}</option>`).join('')}
-                    </select>
+                    ${renderValueVariablePicker(yOptions)}
                 </div>
                 <div class="chart-control-group">
                     <label class="chart-control-label">Category Labels</label>
@@ -150,22 +289,39 @@ function displayCharts(data) {
             <div class="charts-grid">
                 <div class="chart-card">
                     <div class="chart-card-title" id="bar-chart-title">Bar Chart</div>
-                    <div class="chart-canvas-wrap">
+                    <div class="chart-canvas-wrap" id="bar-chart-wrap">
                         <canvas id="bar-chart"></canvas>
                     </div>
                 </div>
                 <div class="chart-card">
                     <div class="chart-card-title" id="line-chart-title">Line Chart</div>
-                    <div class="chart-canvas-wrap">
+                    <div class="chart-canvas-wrap" id="line-chart-wrap">
                         <canvas id="line-chart"></canvas>
                     </div>
                 </div>
                 <div class="chart-card chart-card-full">
                     <div class="chart-card-title" id="pie-chart-title">Pie Chart</div>
-                    <div class="chart-canvas-wrap chart-canvas-pie">
+                    <div class="chart-canvas-wrap chart-canvas-pie" id="pie-chart-wrap">
                         <canvas id="pie-chart"></canvas>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <div id="charts-loading" class="charts-loading" style="display:none;">
+            <div class="charts-loading-text">
+                <strong>Generating charts...</strong>
+                <span>Grouping values, calculating totals, and drawing previews</span>
+            </div>
+            <div class="charts-progress-track">
+                <div class="charts-progress-bar"></div>
+            </div>
+            <div class="charts-loading-preview" aria-hidden="true">
+                <span style="height: 36%"></span>
+                <span style="height: 68%"></span>
+                <span style="height: 48%"></span>
+                <span style="height: 84%"></span>
+                <span style="height: 58%"></span>
             </div>
         </div>
 
@@ -173,14 +329,16 @@ function displayCharts(data) {
             <div class="charts-empty-icon">Chart</div>
             <p class="charts-empty-text">Choose variables and options above, then generate the dashboard.</p>
         </div>
+
+        <div id="charts-error" class="charts-error" style="display:none;"></div>
     `;
 
     const xSelect = document.getElementById('chart-x-column');
-    const ySelect = document.getElementById('chart-y-column');
+    const yCheckboxes = document.querySelectorAll('.chart-value-checkbox');
     xSelect.value = getBestCategoryColumn(columns, numericCols);
     if (numericCols.length > 0) {
-        Array.from(ySelect.options).forEach((option, index) => {
-            option.selected = index === 0;
+        yCheckboxes.forEach((checkbox, index) => {
+            checkbox.checked = index === 0;
         });
     }
     if (dateCols.length > 0) {
@@ -194,6 +352,7 @@ function displayCharts(data) {
     document.getElementById('chart-aggregation').onchange = syncChartControls;
     document.getElementById('chart-x-column').onchange = () => syncLabelMode(data);
     document.getElementById('generate-charts-btn').onclick = () => generateCharts(data);
+    setupValueVariablePicker();
     syncChartControls();
     syncLabelMode(data);
 }
@@ -232,16 +391,21 @@ function applyChartScenario(data) {
 
 function syncChartControls() {
     const aggregation = document.getElementById('chart-aggregation').value;
-    const ySelect = document.getElementById('chart-y-column');
-    ySelect.classList.toggle('chart-select-muted', aggregation === 'count');
-    ySelect.title = aggregation === 'count'
+    const yPicker = document.getElementById('chart-y-column');
+    const yButton = document.getElementById('chart-y-column-button');
+    yPicker.classList.toggle('chart-select-muted', aggregation === 'count');
+    yButton.title = aggregation === 'count'
         ? 'Count Rows uses the category variable; selected value variables are ignored until you choose another calculation.'
-        : 'Hold Ctrl or Shift to select multiple value variables.';
+        : 'Choose one or more value variables.';
 }
 
 function getSelectedValueColumns() {
-    const ySelect = document.getElementById('chart-y-column');
-    return Array.from(ySelect.selectedOptions).map(option => option.value);
+    return Array.from(document.querySelectorAll('.chart-value-checkbox:checked')).map(option => option.value);
+}
+
+function getFirstValueColumn() {
+    const firstCheckbox = document.querySelector('.chart-value-checkbox');
+    return firstCheckbox ? firstCheckbox.value : '';
 }
 
 function syncLabelMode(data) {
@@ -370,10 +534,25 @@ function buildChartDataset(data, options) {
 }
 
 function generateCharts(data) {
+    showChartLoadingState();
+
+    requestAnimationFrame(() => {
+        window.setTimeout(() => {
+            try {
+                renderGeneratedCharts(data);
+            } catch (error) {
+                console.error('Chart generation error:', error);
+                showChartError('Could not generate the charts. Please check that the selected columns have usable values and try another setup.');
+            }
+        }, 180);
+    });
+}
+
+function renderGeneratedCharts(data) {
     const selectedYCols = getSelectedValueColumns();
     const options = {
         xCol: document.getElementById('chart-x-column').value,
-        yCol: selectedYCols[0] || document.getElementById('chart-y-column').value,
+        yCol: selectedYCols[0] || getFirstValueColumn(),
         labelMode: document.getElementById('chart-label-mode').value,
         aggregation: document.getElementById('chart-aggregation').value,
         limit: Number(document.getElementById('chart-limit').value),
@@ -403,8 +582,19 @@ function generateCharts(data) {
             label: toTitleText(col),
             rows: buildChartDataset(data, { ...options, yCol: col })
         }));
+
+    if (chartSeries.length === 0 || chartSeries.every(series => series.rows.length === 0)) {
+        showChartError('No chartable values were found for this setup. Try another category column or use Count Rows.');
+        return;
+    }
+
     const chartRows = chartSeries[0].rows;
     const labels = chartRows.map(item => item.label);
+    if (labels.length === 0) {
+        showChartError('No category groups were found for this setup. Try another category variable.');
+        return;
+    }
+
     if (chartSeries.length > 1) {
         chartSeries.slice(1).forEach(series => {
             const rowsByLabel = new Map(series.rows.map(item => [item.label, item]));
@@ -442,9 +632,17 @@ function generateCharts(data) {
     document.getElementById('line-chart-title').textContent = `Line Chart - ${metricLabel}`;
     document.getElementById('pie-chart-title').textContent = `Pie Chart - ${pieMetricLabel}`;
 
+    if (typeof Chart === 'undefined') {
+        renderFallbackCharts(labels, chartSeries, colors);
+        hideChartLoadingState();
+        return;
+    }
+
+    resetChartCanvasWraps();
     renderBarChart(labels, chartSeries, palette, metricLabel, categoryLabel, valueLabel);
     renderLineChart(labels, chartSeries, palette, metricLabel, categoryLabel, valueLabel);
     renderPieChart(labels, pieValues, colors);
+    hideChartLoadingState();
 }
 
 function sharedScaleOptions(categoryLabel, valueLabel) {
@@ -493,6 +691,98 @@ function buildSeriesDatasets(chartSeries, palette, type) {
             borderSkipped: false
         };
     });
+}
+
+function getFallbackRows(chartSeries) {
+    const firstSeries = chartSeries[0] || { rows: [] };
+    return firstSeries.rows.slice(0, 12);
+}
+
+function renderFallbackBars(rows, colors) {
+    const max = Math.max(...rows.map(row => Math.abs(row.value)), 1);
+    return `
+        <div class="chart-fallback-bars">
+            ${rows.map((row, index) => {
+                const width = Math.max((Math.abs(row.value) / max) * 100, 3);
+                return `
+                    <div class="chart-fallback-row">
+                        <span class="chart-fallback-label" title="${escapeChartHtml(row.label)}">${escapeChartHtml(row.label)}</span>
+                        <div class="chart-fallback-track">
+                            <span class="chart-fallback-bar" style="width:${width}%; background:${colors[index % colors.length]}"></span>
+                        </div>
+                        <span class="chart-fallback-value">${row.value}</span>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+}
+
+function renderFallbackLine(rows, colors) {
+    const values = rows.map(row => Number(row.value));
+    const min = Math.min(...values, 0);
+    const max = Math.max(...values, 1);
+    const range = max - min || 1;
+    const points = rows.map((row, index) => {
+        const x = rows.length === 1 ? 50 : (index / (rows.length - 1)) * 100;
+        const y = 88 - (((row.value - min) / range) * 76);
+        return `${x},${y}`;
+    }).join(' ');
+
+    return `
+        <div class="chart-fallback-line">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Line chart preview">
+                <polyline points="${points}" fill="none" stroke="${colors[0] || '#16a34a'}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
+            </svg>
+            <div class="chart-fallback-axis">
+                <span>${escapeChartHtml(rows[0]?.label || '')}</span>
+                <span>${escapeChartHtml(rows[rows.length - 1]?.label || '')}</span>
+            </div>
+        </div>
+    `;
+}
+
+function renderFallbackPie(rows, colors) {
+    const positiveRows = rows.filter(row => row.value > 0);
+    const total = positiveRows.reduce((sum, row) => sum + row.value, 0);
+
+    if (total <= 0) {
+        return renderFallbackBars(rows, colors);
+    }
+
+    let cursor = 0;
+    const segments = positiveRows.map((row, index) => {
+        const start = cursor;
+        cursor += (row.value / total) * 100;
+        return `${colors[index % colors.length]} ${start}% ${cursor}%`;
+    });
+
+    return `
+        <div class="chart-fallback-pie">
+            <div class="chart-fallback-pie-shape" style="background:conic-gradient(${segments.join(', ')})"></div>
+            <div class="chart-fallback-legend">
+                ${positiveRows.slice(0, 8).map((row, index) => `
+                    <div class="chart-fallback-legend-item">
+                        <span style="background:${colors[index % colors.length]}"></span>
+                        <strong title="${escapeChartHtml(row.label)}">${escapeChartHtml(row.label)}</strong>
+                        <em>${Math.round((row.value / total) * 100)}%</em>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function renderFallbackCharts(labels, chartSeries, colors) {
+    destroyChartInstances();
+    const rows = getFallbackRows(chartSeries);
+    const barWrap = document.getElementById('bar-chart-wrap');
+    const lineWrap = document.getElementById('line-chart-wrap');
+    const pieWrap = document.getElementById('pie-chart-wrap');
+
+    if (barWrap) barWrap.innerHTML = renderFallbackBars(rows, colors);
+    if (lineWrap) lineWrap.innerHTML = renderFallbackLine(rows, colors);
+    if (pieWrap) pieWrap.innerHTML = renderFallbackPie(rows, colors);
 }
 
 function renderBarChart(labels, chartSeries, palette, metricLabel, categoryLabel, valueLabel) {
