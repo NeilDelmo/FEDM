@@ -35,6 +35,7 @@ function updateModalDatasetInfo(data) {
 }
 
 function setUploadCompleteState(item, data) {
+    item.classList.remove('upload-item-processing');
     item.classList.add('upload-item-complete');
 
     const oldActions = item.querySelector('.upload-actions');
@@ -179,14 +180,40 @@ function uploadFile(file) {
         resetUploadState();
     };
 
+    function setUploadStatus(text, color = '#64748b') {
+        statusText.textContent = text;
+        statusText.style.color = color;
+    }
+
+    function setProcessingState() {
+        item.classList.add('upload-item-processing');
+        progressBar.style.width = '95%';
+        setUploadStatus('Processing file...');
+    }
+
+    function setErrorState(message) {
+        item.classList.remove('upload-item-processing');
+        setUploadStatus(message, '#ef4444');
+        progressBar.classList.remove('completed');
+        window.hasActiveUpload = false;
+        window.currentFileName = '';
+        dropZone.classList.remove('has-file');
+    }
+
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/upload', true);
 
     xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
-            const percent = (event.loaded / event.total) * 100;
-            progressBar.style.width = percent + '%';
-            statusText.textContent = Math.round(percent) + '%';
+            const percent = Math.round((event.loaded / event.total) * 100);
+            const displayPercent = Math.min(percent, 95);
+            progressBar.style.width = displayPercent + '%';
+
+            if (percent >= 100) {
+                setProcessingState();
+            } else {
+                setUploadStatus(`Uploading ${displayPercent}%`);
+            }
         }
     };
 
@@ -196,16 +223,17 @@ function uploadFile(file) {
             try {
                 data = JSON.parse(xhr.responseText);
             } catch (error) {
-                statusText.textContent = 'Invalid server response';
-                statusText.style.color = '#ef4444';
-                window.hasActiveUpload = false;
-                window.currentFileName = '';
-                dropZone.classList.remove('has-file');
+                setErrorState('Invalid server response');
                 return;
             }
 
-            statusText.textContent = 'Ready';
-            statusText.style.color = '#10b981';
+            if (data.error) {
+                setErrorState(data.error);
+                return;
+            }
+
+            item.classList.remove('upload-item-processing');
+            setUploadStatus('Ready', '#10b981');
             progressBar.style.width = '100%';
             progressBar.classList.add('completed');
             window.currentData = data;
@@ -223,24 +251,24 @@ function uploadFile(file) {
 
             setUploadCompleteState(item, data);
         } else {
-            statusText.textContent = 'Error';
-            statusText.style.color = '#ef4444';
-            window.hasActiveUpload = false;
-            window.currentFileName = '';
-            dropZone.classList.remove('has-file');
+            let message = 'Upload failed';
+            try {
+                const errorData = JSON.parse(xhr.responseText);
+                if (errorData.error) message = errorData.error;
+            } catch (error) {
+                message = xhr.status ? `Upload failed (${xhr.status})` : 'Upload failed';
+            }
+            setErrorState(message);
         }
     };
 
     xhr.onerror = () => {
-        statusText.textContent = 'Error';
-        statusText.style.color = '#ef4444';
-        window.hasActiveUpload = false;
-        window.currentFileName = '';
-        dropZone.classList.remove('has-file');
+        setErrorState('Network error');
     };
 
     const formData = new FormData();
     formData.append('file', file);
+    setUploadStatus('Uploading 0%');
     xhr.send(formData);
 }
 

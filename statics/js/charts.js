@@ -30,6 +30,20 @@ function getNumericColumns(columns, rows) {
     });
 }
 
+function getDateColumns(columns, rows) {
+    return columns.filter(col => {
+        const vals = rows.map(r => r[col]).filter(isPresent).slice(0, 50);
+        if (vals.length === 0) return false;
+
+        const parsed = vals.filter(v => {
+            const raw = String(v).trim();
+            return raw.length >= 6 && Number.isFinite(Date.parse(raw));
+        });
+
+        return parsed.length / vals.length >= 0.8;
+    });
+}
+
 function getBestCategoryColumn(columns, numericCols) {
     return columns.find(col => !numericCols.includes(col)) || columns[0] || '';
 }
@@ -50,11 +64,21 @@ function displayCharts(data) {
     const columns = data.columns || [];
     const rows = data.rows || [];
     const numericCols = getNumericColumns(columns, rows);
+    const dateCols = getDateColumns(columns, rows);
     const yOptions = numericCols.length > 0 ? numericCols : columns;
+    const hasNumericValues = numericCols.length > 0;
 
     container.innerHTML = `
         <div class="charts-header">
             <div class="charts-controls">
+                <div class="chart-control-group">
+                    <label class="chart-control-label">Scenario</label>
+                    <select id="chart-scenario" class="chart-select">
+                        <option value="compare">Compare values</option>
+                        <option value="trend">Trend over time</option>
+                        <option value="distribution">Distribution / percentage</option>
+                    </select>
+                </div>
                 <div class="chart-control-group">
                     <label class="chart-control-label">Category Variable</label>
                     <select id="chart-x-column" class="chart-select">
@@ -99,6 +123,7 @@ function displayCharts(data) {
                     <select id="chart-sort" class="chart-select">
                         <option value="value_desc">Highest Values</option>
                         <option value="value_asc">Lowest Values</option>
+                        <option value="category_asc">Category / Date Order</option>
                         <option value="label_asc">A to Z</option>
                     </select>
                 </div>
@@ -115,11 +140,12 @@ function displayCharts(data) {
                 </div>
             </div>
             <div class="charts-help">
-                Variables are dataset columns. Pick a category column with names or groups, then pick a numeric value column to calculate.
+                Pick the scenario sir asks for, then choose the CSV columns. Use Count Rows for frequency, distribution, or percentage questions.
             </div>
         </div>
 
         <div id="charts-area" class="charts-area" style="display:none;">
+            <div id="charts-warning" class="charts-warning" style="display:none;"></div>
             <div id="charts-summary" class="charts-summary"></div>
             <div class="charts-grid">
                 <div class="chart-card">
@@ -153,10 +179,49 @@ function displayCharts(data) {
     const ySelect = document.getElementById('chart-y-column');
     xSelect.value = getBestCategoryColumn(columns, numericCols);
     if (numericCols.length > 0) ySelect.value = numericCols[0];
+    if (dateCols.length > 0) {
+        document.getElementById('chart-scenario').dataset.bestDateColumn = dateCols[0];
+    }
+    if (!hasNumericValues) {
+        document.getElementById('chart-aggregation').value = 'count';
+    }
 
+    document.getElementById('chart-scenario').onchange = () => applyChartScenario(data);
     document.getElementById('chart-aggregation').onchange = syncChartControls;
     document.getElementById('chart-x-column').onchange = () => syncLabelMode(data);
     document.getElementById('generate-charts-btn').onclick = () => generateCharts(data);
+    syncChartControls();
+    syncLabelMode(data);
+}
+
+function applyChartScenario(data) {
+    const scenario = document.getElementById('chart-scenario').value;
+    const xSelect = document.getElementById('chart-x-column');
+    const aggregationSelect = document.getElementById('chart-aggregation');
+    const sortSelect = document.getElementById('chart-sort');
+    const limitSelect = document.getElementById('chart-limit');
+    const numericCols = getNumericColumns(data.columns || [], data.rows || []);
+    const dateCols = getDateColumns(data.columns || [], data.rows || []);
+
+    if (scenario === 'trend') {
+        if (dateCols.length > 0) xSelect.value = dateCols[0];
+        if (numericCols.length > 0 && aggregationSelect.value === 'count') {
+            aggregationSelect.value = 'sum';
+        }
+        sortSelect.value = 'category_asc';
+        limitSelect.value = '20';
+    } else if (scenario === 'distribution') {
+        aggregationSelect.value = 'count';
+        sortSelect.value = 'value_desc';
+        limitSelect.value = '12';
+    } else {
+        if (numericCols.length > 0 && aggregationSelect.value === 'count') {
+            aggregationSelect.value = 'average';
+        }
+        sortSelect.value = 'value_desc';
+        limitSelect.value = '12';
+    }
+
     syncChartControls();
     syncLabelMode(data);
 }
@@ -187,6 +252,12 @@ function getAggregatedValue(group, aggregation) {
 
 function sortChartRows(rows, sortMode) {
     if (sortMode === 'value_asc') return rows.sort((a, b) => a.value - b.value);
+    if (sortMode === 'category_asc') {
+        return rows.sort((a, b) => {
+            if (a.sortValue !== null && b.sortValue !== null) return a.sortValue - b.sortValue;
+            return a.label.localeCompare(b.label, undefined, { numeric: true });
+        });
+    }
     if (sortMode === 'label_asc') return rows.sort((a, b) => a.label.localeCompare(b.label));
     return rows.sort((a, b) => b.value - a.value);
 }
@@ -214,6 +285,22 @@ function getCategoryLabel(row, options, numericRange) {
     return String(rawKey).trim();
 }
 
+function getCategorySortValue(rawValue, fallbackLabel, numericRange) {
+    if (!isPresent(rawValue)) return null;
+    const numericValue = Number(rawValue);
+    if (Number.isFinite(numericValue)) return numericValue;
+
+    const parsedDate = Date.parse(String(rawValue).trim());
+    if (Number.isFinite(parsedDate)) return parsedDate;
+
+    if (numericRange) {
+        const match = String(fallbackLabel).match(/^-?\d+(\.\d+)?/);
+        if (match) return Number(match[0]);
+    }
+
+    return null;
+}
+
 function buildChartDataset(data, options) {
     const grouped = new Map();
     const numericXValues = data.rows
@@ -233,7 +320,7 @@ function buildChartDataset(data, options) {
         const numericValue = Number(rawValue);
 
         if (!grouped.has(key)) {
-            grouped.set(key, { rowCount: 0, values: [] });
+            grouped.set(key, { rowCount: 0, values: [], sortValues: [] });
         }
 
         const group = grouped.get(key);
@@ -241,12 +328,18 @@ function buildChartDataset(data, options) {
         if (Number.isFinite(numericValue)) {
             group.values.push(numericValue);
         }
+
+        const sortValue = getCategorySortValue(row[options.xCol], key, numericRange);
+        if (sortValue !== null) {
+            group.sortValues.push(sortValue);
+        }
     });
 
     const aggregated = Array.from(grouped.entries()).map(([label, group]) => ({
         label,
         value: Number(getAggregatedValue(group, options.aggregation).toFixed(2)),
-        rowCount: group.rowCount
+        rowCount: group.rowCount,
+        sortValue: group.sortValues.length > 0 ? Math.min(...group.sortValues) : null
     }));
 
     return sortChartRows(aggregated, options.sortMode).slice(0, options.limit);
@@ -263,6 +356,15 @@ function generateCharts(data) {
         paletteName: document.getElementById('chart-palette').value
     };
 
+    const numericCols = getNumericColumns(data.columns || [], data.rows || []);
+    const warningEl = document.getElementById('charts-warning');
+    let warning = '';
+
+    if (options.aggregation !== 'count' && !numericCols.includes(options.yCol)) {
+        warning = `"${options.yCol}" is not fully numeric, so the dashboard used Count Rows instead.`;
+        options.aggregation = 'count';
+    }
+
     const chartRows = buildChartDataset(data, options);
     const labels = chartRows.map(item => item.label);
     const values = chartRows.map(item => item.value);
@@ -277,6 +379,8 @@ function generateCharts(data) {
 
     document.getElementById('charts-area').style.display = 'block';
     document.getElementById('charts-empty').style.display = 'none';
+    warningEl.style.display = warning ? 'block' : 'none';
+    warningEl.textContent = warning;
     document.getElementById('charts-summary').textContent =
         `This dashboard groups records by ${categoryLabel} and shows ${options.aggregation === 'count' ? 'how many records are in each group' : `${calculationLabel.toLowerCase()} ${valueLabel}`} for the top ${labels.length} groups.`;
     document.getElementById('bar-chart-title').textContent = `Bar Chart - ${metricLabel}`;

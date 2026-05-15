@@ -322,6 +322,10 @@ body {
     box-shadow: 0 8px 24px rgba(22, 163, 74, 0.1);
 }
 
+.upload-item-processing {
+    border-color: #bae6fd;
+}
+
 .upload-info {
     display: flex;
     align-items: center;
@@ -419,8 +423,24 @@ body {
     transition: width 0.2s ease-out;
 }
 
+.upload-item-processing .progress-bar {
+    background: linear-gradient(90deg, var(--green-primary), #38bdf8, var(--green-primary));
+    background-size: 180% 100%;
+    animation: upload-processing 1.1s linear infinite;
+}
+
 .progress-bar.completed {
     background: var(--green-medium);
+}
+
+@keyframes upload-processing {
+    from {
+        background-position: 180% 0;
+    }
+
+    to {
+        background-position: 0 0;
+    }
 }
 
 /* ── Row / Table ────────────────────────────────────── */
@@ -1477,6 +1497,17 @@ body.modal-open #view-clean {
     border-radius: 8px;
     background: #f0f9ff;
     color: #075985;
+    font-weight: 600;
+}
+
+.charts-warning {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    background: #fffbeb;
+    color: #92400e;
+    font-size: 12.5px;
     font-weight: 600;
 }
 
