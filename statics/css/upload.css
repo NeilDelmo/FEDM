@@ -54,19 +54,20 @@ body {
 }
 
 .nav-logo {
-    width: 28px;
-    height: 28px;
-    background: var(--green-primary);
-    border-radius: 7px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 45px; /* adjust size */
+  height: 45px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: transparent;
 }
 
-.nav-logo i {
-    font-size: 16px;
-    color: #fff;
-    font-style: normal;
+.nav-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* keeps image proportions */
 }
 
 .nav-title {

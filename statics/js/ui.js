@@ -120,4 +120,4 @@ window.addEventListener("load", async function () {
     } catch (err) {
         console.error("Clerk Error:", err);
     }
-});
+}); 
