@@ -2,11 +2,18 @@
 
 window.hasActiveUpload = false;
 window.currentData = null;
+window.originalData = null;
 window.currentFileName = '';
+window.previewDataMode = 'original';
+window.hasCleanedData = false;
 
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('fileInput');
 const uploadList = document.getElementById('upload-list');
+
+function cloneDataset(data) {
+    return data ? JSON.parse(JSON.stringify(data)) : null;
+}
 
 function hideWorkspace() {
     const modal = document.getElementById('data-modal');
@@ -21,8 +28,7 @@ function openWorkspace() {
     modal.style.display = 'flex';
     document.body.classList.add('modal-open');
 
-    if (typeof setStep === 'function') setStep(0);
-    if (typeof updateModalStepper === 'function') updateModalStepper(0);
+    showCurrentPreview(window.previewDataMode === 'original' ? 'original' : 'cleaned');
 }
 
 function updateModalDatasetInfo(data) {
@@ -76,7 +82,10 @@ function resetUploadState() {
 
     window.hasActiveUpload = false;
     window.currentData = null;
+    window.originalData = null;
     window.currentFileName = '';
+    window.previewDataMode = 'original';
+    window.hasCleanedData = false;
     window.cleaningHistory = [];
     if (dropZone) dropZone.classList.remove('has-file');
 
@@ -237,10 +246,18 @@ function uploadFile(file) {
             progressBar.style.width = '100%';
             progressBar.classList.add('completed');
             window.currentData = data;
+            window.originalData = cloneDataset(data);
+            window.previewDataMode = 'original';
+            window.hasCleanedData = false;
             updateModalDatasetInfo(data);
 
             if (typeof displayTable === 'function') {
-                displayTable(data.columns, data.rows, data.total_rows);
+                displayTable(data.columns, data.rows, data.total_rows, {
+                    label: 'Original Data',
+                    mode: 'original',
+                    showOriginalToggle: false,
+                    showExport: false
+                });
             }
             if (typeof displayProfile === 'function') {
                 displayProfile(data);
@@ -272,10 +289,69 @@ function uploadFile(file) {
     xhr.send(formData);
 }
 
-function displayTable(columns, rows, total_rows) {
+function displayTable(columns, rows, total_rows, options = {}) {
     const modalContent = document.getElementById('modal-content-0');
 
     modalContent.innerHTML = '';
+
+    const mode = options.mode || window.previewDataMode || 'original';
+    const isCleanedPreview = mode === 'cleaned';
+    const label = options.label || (isCleanedPreview ? 'Cleaned Data' : 'Original Data');
+    const canShowOriginal = Boolean(options.showOriginalToggle && window.originalData);
+    const canShowCleaned = Boolean(isCleanedPreview === false && window.hasCleanedData && window.currentData && window.originalData);
+    const showExport = Boolean(options.showExport && window.currentData);
+
+    const previewHeader = document.createElement('div');
+    previewHeader.className = 'preview-toolbar';
+
+    const leftActions = document.createElement('div');
+    leftActions.className = 'preview-toolbar-left';
+
+    if (canShowOriginal) {
+        const originalButton = document.createElement('button');
+        originalButton.type = 'button';
+        originalButton.className = 'preview-secondary-btn';
+        originalButton.textContent = 'View Original Data';
+        originalButton.addEventListener('click', () => showCurrentPreview('original'));
+        leftActions.appendChild(originalButton);
+    } else if (canShowCleaned) {
+        const cleanedButton = document.createElement('button');
+        cleanedButton.type = 'button';
+        cleanedButton.className = 'preview-secondary-btn';
+        cleanedButton.textContent = 'View Cleaned Data';
+        cleanedButton.addEventListener('click', () => showCurrentPreview('cleaned'));
+        leftActions.appendChild(cleanedButton);
+    }
+
+    const titleGroup = document.createElement('div');
+    titleGroup.className = 'preview-title-group';
+
+    const title = document.createElement('h3');
+    title.className = 'preview-title';
+    title.textContent = label;
+    titleGroup.appendChild(title);
+
+    const rightActions = document.createElement('div');
+    rightActions.className = 'preview-toolbar-actions';
+
+    if (showExport) {
+        const exportCsv = document.createElement('button');
+        exportCsv.type = 'button';
+        exportCsv.className = 'preview-export-btn';
+        exportCsv.textContent = 'Export CSV';
+        exportCsv.addEventListener('click', () => exportCleanedData(window.currentData.columns, window.currentData.rows, 'csv'));
+
+        const exportExcel = document.createElement('button');
+        exportExcel.type = 'button';
+        exportExcel.className = 'preview-export-btn preview-export-btn-secondary';
+        exportExcel.textContent = 'Export Excel';
+        exportExcel.addEventListener('click', () => exportCleanedData(window.currentData.columns, window.currentData.rows, 'xlsx'));
+
+        rightActions.append(exportCsv, exportExcel);
+    }
+
+    previewHeader.append(leftActions, titleGroup, rightActions);
+    modalContent.appendChild(previewHeader);
 
     const message = document.createElement('p');
     message.className = 'row-message';
@@ -320,7 +396,25 @@ function displayTable(columns, rows, total_rows) {
 
     if (typeof setStep === 'function') setStep(0);
     if (typeof updateModalStepper === 'function') updateModalStepper(0);
+
+    const modalTitle = document.getElementById('modal-title');
+    if (modalTitle) modalTitle.textContent = label;
 }
+
+function showCurrentPreview(mode = 'cleaned') {
+    const data = mode === 'original' ? window.originalData : window.currentData;
+    if (!data) return;
+
+    window.previewDataMode = mode;
+    displayTable(data.columns, data.rows, data.total_rows, {
+        label: mode === 'original' ? 'Original Data' : 'Cleaned Data',
+        mode,
+        showOriginalToggle: mode === 'cleaned',
+        showExport: mode === 'cleaned'
+    });
+}
+
+window.showCurrentPreview = showCurrentPreview;
 
 document.addEventListener('DOMContentLoaded', function () {
     const modal = document.getElementById('data-modal');

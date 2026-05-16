@@ -50,6 +50,14 @@ function escapeHtml(value) {
 }
 
 function getFirstElement(ids) {
+    const activeModal = document.querySelector('.modal-content.active-modal-content');
+    if (activeModal) {
+        for (const id of ids) {
+            const el = document.getElementById(id);
+            if (el && activeModal.contains(el)) return el;
+        }
+    }
+
     for (const id of ids) {
         const el = document.getElementById(id);
         if (el) return el;
@@ -256,11 +264,10 @@ function showComparisonView(originalData, cleanedData, message, details) {
 
     document.getElementById('comp-confirm-btn').onclick = () => {
         window.currentData = cleanedData;
+        window.previewDataMode = 'cleaned';
+        window.hasCleanedData = true;
         addToLog(message, details);
 
-        if (typeof displayTable === 'function') {
-            displayTable(cleanedData.columns, cleanedData.rows, cleanedData.total_rows);
-        }
         if (typeof displayProfile === 'function') {
             displayProfile(cleanedData);
         }
@@ -268,7 +275,13 @@ function showComparisonView(originalData, cleanedData, message, details) {
             updateModalDatasetInfo(cleanedData);
         }
 
-        restoreCleaningTools(cleanedData);
+        restoreCleaningTools(cleanedData, { activate: false });
+
+        if (typeof showCurrentPreview === 'function') {
+            showCurrentPreview('cleaned');
+        } else if (typeof displayTable === 'function') {
+            displayTable(cleanedData.columns, cleanedData.rows, cleanedData.total_rows);
+        }
     };
 }
 
@@ -279,12 +292,13 @@ function resetComparisonScrollers() {
     });
 }
 
-function restoreCleaningTools(data) {
+function restoreCleaningTools(data, options = {}) {
+    const shouldActivate = options.activate !== false;
     const compContainer = document.getElementById('modal-content-2');
     compContainer.innerHTML = getCleaningFormHTML();
     renderCleaningLog();
     if (typeof displayCleaning === 'function') displayCleaning(data);
-    if (typeof setStep === 'function') setStep(2);
+    if (shouldActivate && typeof setStep === 'function') setStep(2);
 }
 
 function getCleaningFormHTML() {
